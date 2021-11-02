@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"messanger/pkg/chat"
+	_ "messanger/configs"
+	"messanger/pkg/connection"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,19 +13,22 @@ import (
 	"messanger/internal/logs"
 
 	"github.com/gorilla/websocket"
-	"github.com/joho/godotenv"
 )
 
 var upgrader = websocket.Upgrader{
 	EnableCompression: true,
 }
 var port string
-var id int
+var id int64
+var peer *connection.Peer
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		logs.FatalLog("", "No .env file found", nil)
+	a := os.Getenv("REDIS_HOST")
+	if a == "" {
+		a = "123"
 	}
+	fmt.Println(a)
+
 	port = os.Getenv("PORT")
 	if port == "" {
 		logs.FatalLog("", "missing PORT env var", nil)
@@ -43,23 +47,33 @@ func main() {
 }
 
 func webSocketHandler(rw http.ResponseWriter, req *http.Request) {
-	body := make([]byte, 0)
-	_, err := req.Body.Read(body)
-	if err != nil {
-		logs.ErrorLog("", fmt.Sprintf("Invalid request body: %v", string(body)), err)
-	}
+	// body := make([]byte, 0)
+	// _, err := req.Body.Read(body)
+	// if err != nil {
+	// 	logs.ErrorLog("", fmt.Sprintf("Invalid request body: %v, fileName: %s, method:%s", string(body), main.go, webSocketHandler), err)
+	// 	rw.WriteHeader(http.StatusBadRequest)
+	// 	return
+	// }
 
-	user := new(pkg.User)
-	//json.Unmarshal(body, user)
-	id++
-	user.Id = int64(id)
-
-	peer, err := upgrader.Upgrade(rw, req, nil)
+	webSockerConn, err := upgrader.Upgrade(rw, req, nil)
 	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
 		logs.FatalLog("", "websocket connection failed", err)
 	}
-	chatSession := chat.ChatSession{user}
-	chatSession.Start(1)
+
+	id++
+	user := &connection.User{
+		Id:    id,
+		Name:  fmt.Sprint(id) + "_name",
+		Peers: make([]connection.Peer, 0),
+	}
+	peer = &connection.Peer{
+		Conn: webSockerConn,
+		Id:   3,
+	}
+
+	user.Peers = append(user.Peers, *peer)
+	user.Start(peer)
 }
 
 func stopServer(s http.Server) {

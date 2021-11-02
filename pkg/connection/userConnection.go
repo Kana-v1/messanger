@@ -7,6 +7,7 @@ import (
 	"messanger/pkg/chat"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/sha3"
 )
 
 type Peer struct {
@@ -82,10 +83,11 @@ func (u *User) Start(peer *Peer) {
 				logs.ErrorLog("websocketErrors.log", "error while starting chat session, err:", err)
 				return
 			}
-			sender := fmt.Sprintf(`{%v}`, u.Id)
-			channel := string(chatSession.Id) + "-channel"
+			//symbol which separate sender id & message dont have to has collissions with symbols inside the message
+			message := fmt.Sprintf(`%v%v%s`, u.Id, sha3.New224().Sum([]byte(separateString)), string(msg))
+			channel := fmt.Sprint(chatSession.Id) + "-channel"
 
-			chat.SendToChannel(fmt.Sprintf(sender, msg), channel)
+			chat.SendToChannel(message, channel)
 		}
 	}()
 }

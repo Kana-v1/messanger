@@ -2,13 +2,12 @@ package chat
 
 import (
 	"fmt"
-	"log"
+	"messanger/internal/logs"
 	nosql "messanger/pkg/repository/noSql"
 	"os"
 	"sync"
 
 	"github.com/go-redis/redis"
-	"github.com/joho/godotenv"
 )
 
 var (
@@ -19,15 +18,20 @@ var (
 )
 
 func init() {
-	if err := godotenv.Load(); err != nil {
-		log.Print("No .env file found")
-	}
-	redisHost = os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		log.Fatal("missing REDIS_HOST env var")
+
+	var exit bool
+	redisHost, exit = os.LookupEnv("REDIS_HOST")
+	if !exit {
+		logs.FatalLog("", "missing REDIS_HOST env var", nil)
 	}
 
-	redisPassword = os.Getenv("REDIS_PASSWORD")
+	redisPassword, exit = os.LookupEnv("REDIS_PASSWORD")
+	if !exit {
+		logs.FatalLog("", "missing REDIS_PASSWORD env var", nil)
+	}
+	if redisPassword == "" {
+		logs.InfoLog("", "REDIS_PASSWORD is empty", nil)
+	}
 	Client = redis.NewClient(&redis.Options{
 		Addr:     redisHost,
 		Password: redisPassword,
@@ -39,7 +43,6 @@ func init() {
 		Client: Client,
 		Mutex:  new(sync.Mutex),
 	}
-	//startSubscriber()
 }
 
 func RemoveUser(users string, user string) {
