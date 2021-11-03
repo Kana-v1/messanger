@@ -2,12 +2,14 @@ package connection
 
 import (
 	"fmt"
-	"messanger/internal/collections"
 	"messanger/internal/logs"
 	"messanger/pkg/chat"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/sha3"
 )
+
+var usersUpdated chan bool
 
 type Peer struct {
 	Id int64
@@ -19,51 +21,52 @@ type User struct {
 	Name       string
 	PrivateKey string
 	PublicKey  string
+	Sessions   []int64
 	Peers      []Peer
 }
 
-func (uc *User) disconnect() {
+func (u *User) disconnect() {
 	for _, chatSession := range Sessions {
-		if user := collections.Contains(chatSession.Users); user != nil {
-
-			if len(chatSession.Users) == 2 { //TODO reuse such empty sessions instead of creating new one
-				chatSession.Peer.Close()
-				for _, user := range chatSession.Users {
-					chat.RemoveUser(chatSession.GetChannel(), user.Name)
-				}
-			} else {
-				chat.RemoveUser(chatSession.GetChannel(), uc.Name)
-
-				for i, user := range chatSession.Users {
-					if user.Id == uc.Id {
-						usersInChat := make([]User, 0)
-						usersInChat = append(chatSession.Users[:i], chatSession.Users[i+1:]...)
-						chatSession.Users = usersInChat
-						return
+		for user := range chatSession.Peers {
+			if u.Id == user.Id {
+				if len(chatSession.Peers) == 2 { //TODO reuse such empty sessions instead of creating new one
+					for u, p := range chatSession.Peers {
+						p.Close()
+						chat.RemoveUser(chatSession.GetChannel(), u.Name)
+						
 					}
+				} else {
+					chat.RemoveUser(chatSession.GetChannel(), u.Name)
+					delete(chatSession.Peers, u)
 				}
+				break
 			}
-
 		}
 	}
 }
 
 func (u *User) Start(peer *Peer) {
+	usersUpdated = make(chan bool, 2) //dont want to block method until somebody read from channel
 	var chatSession *ChatSession
-	for _, session := range Sessions {
-		if session.Peer.Id == peer.Id {
-			chatSession = &session
-			chatSession.Users = append(chatSession.Users, *u)
-			break
+	for i := range Sessions {
+		for _, p := range Sessions[i].Peers {
+			if p.Id == peer.Id {
+				chatSession = &Sessions[i]
+				chatSession.Peers[u] = peer
+				u.Sessions = append(u.Sessions, Sessions[i].Id)
+				usersUpdated <- true
+				break
+			}
 		}
 	}
 
 	if chatSession == nil {
 		ChatId++
+		userPeer := make(map[*User]*Peer)
+		userPeer[u] = peer
 		chatSession = &ChatSession{
 			Id:    ChatId,
-			Users: []User{*u},
-			Peer:  peer,
+			Peers: userPeer,
 		}
 		chatSession.StartSubscriber()
 
@@ -75,17 +78,19 @@ func (u *User) Start(peer *Peer) {
 			_, msg, err := peer.ReadMessage()
 			if err != nil {
 				if _, ok := err.(*websocket.CloseError); ok {
-					for _, user := range chatSession.Users {
+					for user := range chatSession.Peers {
 						user.disconnect()
 					}
+				} else {
+					logs.ErrorLog("websocketErrors.log", "error while starting chat session, err:", err)
 				}
-				logs.ErrorLog("websocketErrors.log", "error while starting chat session, err:", err)
 				return
 			}
-			sender := fmt.Sprintf(`{%v}`, u.Id)
-			channel := string(chatSession.Id) + "-channel"
+			//symbol which separate sender id & message dont have to has collissions with symbols inside the message
+			message := fmt.Sprintf(`%v%v%s`, u.Id, sha3.New224().Sum([]byte(separateString)), string(msg))
+			channel := fmt.Sprint(chatSession.Id) + "-channel"
 
-			chat.SendToChannel(fmt.Sprintf(sender, msg), channel)
+			chat.SendToChannel(message, channel)
 		}
 	}()
 }

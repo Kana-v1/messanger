@@ -4,26 +4,34 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
+	"time"
 
 	"github.com/pkg/errors"
 )
 
 func ErrorLog(fileName string, message string, comeInError error) error {
+	_, projectPath, _, _ := runtime.Caller(0)
+	basePath := filepath.Dir(projectPath)
+
 	if comeInError == nil {
 		comeInError = errors.New("")
 	}
 	if fileName == "" {
 		fileName = "error.log"
 	}
-	f, err := os.OpenFile("messanger/"+fileName, os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile(filepath.Join(basePath, "../", "logs", "logs", fileName), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 
-	errLog := log.New(f, "INFO\t", log.Ldate|log.Ltime)
-	_, err = errLog.Writer().Write([]byte(fmt.Sprintf("%s\n%v", message, comeInError.Error())))
-
+	errLog := log.New(f, "", log.Ldate|log.Ltime)
+	
+	_, err = errLog.Writer().Write([]byte(fmt.Sprintf("%v\t%s\t%v\n",time.Now().Format("2006-01-02 15:04:05"), message, comeInError.Error())))
+	fmt.Println(message, comeInError.Error())
+	
 	return errors.Wrap(err, fmt.Sprintf("Can not log message: '%s'", message))
 }
 
