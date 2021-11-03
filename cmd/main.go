@@ -43,6 +43,8 @@ func main() {
 			logs.FatalLog("", "failed to start server", err)
 		}
 	}()
+	dontStop := make(chan int)
+	<-dontStop
 	stopServer(server)
 }
 
@@ -59,6 +61,7 @@ func webSocketHandler(rw http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		logs.FatalLog("", "websocket connection failed", err)
+		return
 	}
 
 	id++

@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"strings"
 
+	"messanger/internal/logs"
+
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/sha3"
-	"messanger/internal/logs"
 )
 
 const separateString = "SenderId"
@@ -21,9 +22,8 @@ var (
 )
 
 type ChatSession struct {
-	Id    int64
-	Users []User
-	Peer  *Peer
+	Id   int64
+	Peers map[*User]*Peer
 }
 
 func init() {
@@ -47,9 +47,20 @@ func (cs *ChatSession) StartSubscriber() {
 			}
 			msg := senderIdAndMessage[1]
 
-			for _, user := range cs.Users {
+			select {
+			case <-usersUpdated:
+				for i := range Sessions {
+					if Sessions[i].Id == cs.Id {
+						cs.Peers = Sessions[i].Peers
+					}
+					break
+				}
+			default:
+			}
+
+			for user, peer := range cs.Peers {
 				if senderId != user.Id {
-					cs.Peer.WriteMessage(websocket.TextMessage, []byte(msg))
+					peer.WriteMessage(websocket.TextMessage, []byte(msg))
 				}
 			}
 		}
