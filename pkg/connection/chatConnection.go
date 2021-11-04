@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"messanger/internal/logs"
+	crypto "messanger/pkg/cryptography/symmetricCrypto"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/sha3"
@@ -22,8 +23,9 @@ var (
 )
 
 type ChatSession struct {
-	Id   int64
-	Peers map[*User]*Peer
+	Id        int64
+	Peers     map[*User]*Peer
+	PrivateKey *crypto.CryptoKeys
 }
 
 func init() {
@@ -45,7 +47,6 @@ func (cs *ChatSession) StartSubscriber() {
 			if err != nil {
 				logs.ErrorLog("messagesErrors", fmt.Sprintf("Can not get sender id, file: %s", "chatConnection.go"), err)
 			}
-			msg := senderIdAndMessage[1]
 
 			select {
 			case <-usersUpdated:
@@ -60,7 +61,11 @@ func (cs *ChatSession) StartSubscriber() {
 
 			for user, peer := range cs.Peers {
 				if senderId != user.Id {
-					peer.WriteMessage(websocket.TextMessage, []byte(msg))
+					msg, err := crypto.DecryptMessage([]byte(senderIdAndMessage[1]), cs.PrivateKey)
+					if err != nil {
+						logs.ErrorLog("chatError.log", fmt.Sprintf("Peer id: %v, Ssession id: %v, user id: %v", peer.Id, cs.Id, user.Id), err)
+					}
+					peer.WriteMessage(websocket.TextMessage, msg)
 				}
 			}
 		}
