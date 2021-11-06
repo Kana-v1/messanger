@@ -6,14 +6,17 @@ import (
 	"messanger/internal/logs"
 	"messanger/pkg/chat"
 	crypto "messanger/pkg/cryptography/symmetricCrypto"
+	"messanger/pkg/enums"
 
 	"github.com/gorilla/websocket"
 )
 
 var newUser chan string
-var id int64
 
-const LastChatMessage = "You are the last user in chat, so chat and its history deleted"
+//TODO use last user id from bd + 1
+var usersId int64
+
+const LastChatMessage = "You are the last user in chat, so chat and its history will be deleted"
 
 type Peer struct {
 	Id int64
@@ -26,22 +29,24 @@ type User struct {
 	Name       string
 	Sessions   []int64
 	Peers      []Peer
-	PublicKeys map[int64]*rsa.PublicKey //for each chat session use own private key and session's public key
+	PublicKeys map[int64]*rsa.PublicKey //for each chat session use own public key and session's private key
+	UsersList  map[int64]enums.UserType
 }
 
 func NewUser() *User {
-	id++
+	usersId++
 	return &User{
-		Id:         id,
-		Name:       fmt.Sprintf("%v_user", id),
+		Id:         usersId,
+		Name:       fmt.Sprintf("%v_user", usersId),
 		Sessions:   make([]int64, 0),
 		Peers:      make([]Peer, 0),
 		PublicKeys: make(map[int64]*rsa.PublicKey),
+		UsersList:  make(map[int64]enums.UserType),
 	}
 }
 
 func (u *User) disconnect() {
-	for _, chatSession := range Sessions {
+	for i, chatSession := range Sessions {
 		for user := range chatSession.Peers {
 			if u.Id == user.Id {
 				chat.RemoveUser(chatSession.GetChannel(), u.Name)
@@ -52,7 +57,7 @@ func (u *User) disconnect() {
 					}
 				}
 				if len(chatSession.Peers) == 1 {
-					chatSession.deleteChat()
+					Sessions[i].deleteChat()
 				}
 				break
 			}
@@ -60,25 +65,8 @@ func (u *User) disconnect() {
 	}
 }
 
-func (cs *ChatSession) deleteChat() {
-	for u, p := range cs.Peers {
-		p.IsClosed = true
-		msg, err := crypto.EncryptMessage([]byte(LastChatMessage), u.PublicKeys[cs.Id])
-		if err != nil {
-			logs.ErrorLog("", "can not encrypt message while deleting chat. Err:", err)
-		}
-		message := fmt.Sprintf(`%v%v%s`, -1, separateString, string(msg))
-		channel := fmt.Sprint(cs.Id) + "-channel"
-		chat.SendToChannel(message, channel)
-		message = <- cs.MessageReceived
-		if  message == LastChatMessage {
-			p.Close()
-		}
-	}
-}
-
 func (u *User) Start(peer *Peer) {
-	newUser = make(chan string, 2) //dont want to block method until somebody read from channel
+	newUser = make(chan string, 2) //dont block method until somebody read from channel
 	var chatSession *ChatSession
 	var sessionId int64
 	cryptoKeys := crypto.GenerateKeys()
@@ -101,18 +89,40 @@ func (u *User) Start(peer *Peer) {
 	}
 
 	if chatSession == nil {
-		sessionId = ChatId
-		ChatId++
+
+		InactiveSessions.Mutex.Lock()
+		if InactiveSessions.List.Len() > 0 {
+			session := InactiveSessions.List.Front()
+			InactiveSessions.List.Remove(session)
+
+			cs, ok := session.Value.(ChatSession)
+			if !ok {
+				logs.ErrorLog("InactiveSessions.log", "Can not get inactive session from list", nil)
+			} else {
+				chatSession = &cs
+				chatSession.State = enums.ChatActive
+			}
+			InactiveSessions.Mutex.Unlock()
+		} else {
+			InactiveSessions.Mutex.Unlock()
+
+			sessionId = ChatId
+			ChatId++
+
+			chatSession = &ChatSession{
+				Id:              sessionId,
+				PrivateKey:      cryptoKeys,
+				MessageReceived: make(chan string),
+				Messages:        make([]Message, 0),
+			}
+		}
 		userPeer := make(map[*User]*Peer)
 		userPeer[u] = peer
-
-		chatSession = &ChatSession{
-			Id:              sessionId,
-			Peers:           userPeer,
-			PrivateKey:      cryptoKeys,
-			MessageReceived: make(chan string),
+		if chatSession.Peers == nil {
+			chatSession.Peers = make(map[*User]*Peer)
 		}
-		u.PublicKeys[sessionId] = &cryptoKeys.PublicKey
+		chatSession.Peers = userPeer
+		u.PublicKeys[sessionId] = &chatSession.PrivateKey.PublicKey
 		chatSession.StartSubscriber()
 
 		Sessions = append(Sessions, *chatSession)
