@@ -19,7 +19,6 @@ var upgrader = websocket.Upgrader{
 	EnableCompression: true,
 }
 var port string
-var id int64
 var peer *connection.Peer
 
 func main() {
@@ -64,15 +63,11 @@ func webSocketHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	id++
-	user := &connection.User{
-		Id:    id,
-		Name:  fmt.Sprint(id) + "_name",
-		Peers: make([]connection.Peer, 0),
-	}
+	user := connection.NewUser()
 	peer = &connection.Peer{
-		Conn: webSockerConn,
-		Id:   3,
+		Conn:     webSockerConn,
+		Id:       3,
+		IsClosed: false,
 	}
 
 	user.Peers = append(user.Peers, *peer)
