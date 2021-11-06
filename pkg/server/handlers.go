@@ -6,13 +6,14 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/labstack/echo"
 )
 
 var upgrader = websocket.Upgrader{
 	EnableCompression: true,
 }
 
-func WebSocketHandler(rw http.ResponseWriter, req *http.Request) {
+func WebSocketHandler(c echo.Context) error {
 	// body := make([]byte, 0)
 	// _, err := req.Body.Read(body)
 	// if err != nil {
@@ -21,11 +22,10 @@ func WebSocketHandler(rw http.ResponseWriter, req *http.Request) {
 	// 	return
 	// }
 
-	webSockerConn, err := upgrader.Upgrade(rw, req, nil)
+	webSockerConn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
-		rw.WriteHeader(http.StatusInternalServerError)
 		logs.FatalLog("", "websocket connection failed", err)
-		return
+		return c.String(http.StatusInternalServerError, "")
 	}
 
 	user := connection.NewUser()
@@ -37,4 +37,5 @@ func WebSocketHandler(rw http.ResponseWriter, req *http.Request) {
 
 	user.Peers = append(user.Peers, *peer)
 	user.Start(peer)
+	return c.String(http.StatusOK, "")
 }
