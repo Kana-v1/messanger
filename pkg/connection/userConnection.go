@@ -30,7 +30,7 @@ type User struct {
 	Sessions   []int64
 	Peers      []Peer
 	PublicKeys map[int64]*rsa.PublicKey //for each chat session use own public key and session's private key
-	BlackList  []int64
+	UsersList  map[int64]enums.UserType
 }
 
 func NewUser() *User {
@@ -41,7 +41,7 @@ func NewUser() *User {
 		Sessions:   make([]int64, 0),
 		Peers:      make([]Peer, 0),
 		PublicKeys: make(map[int64]*rsa.PublicKey),
-		BlackList:  make([]int64, 0),
+		UsersList:  make(map[int64]enums.UserType),
 	}
 }
 

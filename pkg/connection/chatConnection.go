@@ -95,11 +95,11 @@ func (cs *ChatSession) StartSubscriber() {
 				}
 			}()
 
-			for user, peer := range cs.Peers {
-				if senderId != user.Id {
+			for receiver, peer := range cs.Peers {
+				if senderId != receiver.Id && !receiver.InBlackList(senderId){
 					msg, err := crypto.DecryptMessage([]byte(senderIdAndMessage[1]), cs.PrivateKey)
 					if err != nil {
-						logs.ErrorLog("chatError.log", fmt.Sprintf("Peer id: %v, Ssession id: %v, user id: %v; err:", peer.Id, cs.Id, user.Id), err)
+						logs.ErrorLog("chatError.log", fmt.Sprintf("Peer id: %v, Ssession id: %v, user id: %v; err:", peer.Id, cs.Id, receiver.Id), err)
 					}
 					peer.WriteMessage(websocket.BinaryMessage, msg)
 
@@ -139,15 +139,13 @@ func (cs *ChatSession) deleteChat() {
 		channel := fmt.Sprint(cs.Id) + "-channel"
 		chat.SendToChannel(message, channel)
 
-		message = <-cs.MessageReceived
-		if message == LastChatMessage {
-			p.Close()
+		<-cs.MessageReceived
+		p.Close()
 
-			cs.State = enums.ChatClosed
-			cs.Messages = make([]Message, 0)
-			cs.Peers = make(map[*User]*Peer)
+		cs.State = enums.ChatClosed
+		cs.Messages = make([]Message, 0)
+		cs.Peers = make(map[*User]*Peer)
 
-			InactiveSessions.List.PushBack(*cs)
-		}
+		InactiveSessions.List.PushBack(*cs)
 	}
 }
