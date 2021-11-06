@@ -10,7 +10,6 @@ import (
 	crypto "messanger/pkg/cryptography/symmetricCrypto"
 
 	"github.com/gorilla/websocket"
-	"golang.org/x/crypto/sha3"
 )
 
 const separateString = "SenderId"
@@ -23,9 +22,10 @@ var (
 )
 
 type ChatSession struct {
-	Id        int64
-	Peers     map[*User]*Peer
-	PrivateKey *crypto.CryptoKeys
+	Id              int64
+	Peers           map[*User]*Peer
+	PrivateKey      *crypto.CryptoKeys
+	MessageReceived chan string
 }
 
 func init() {
@@ -36,20 +36,25 @@ func (cs *ChatSession) StartSubscriber() {
 	go func() {
 		channel := cs.GetChannel()
 		sub := chat.Client.Subscribe(channel)
+		for user := range cs.Peers {
+			chat.CreateUser(cs.GetChannel(), user.Name)
+		}
 		messages := sub.Channel()
 		for message := range messages {
 			//message structure
-			//sender id; hashed separateString message itself
-			//↓			 ↓					 ↓↓				↓
-			//1asdasdasdasdasdasdasdasdasdasdsSomeRealMessage
-			senderIdAndMessage := strings.Split(message.Payload, fmt.Sprint(sha3.New224().Sum([]byte(separateString))))
+			//sender id	separateString    	  encrypted message
+			//↓			 	↓	   		   	  ↓
+			//1          	SeparateString   [//xx]asx]a]sx]as[sad[]d[a]]
+			senderIdAndMessage := strings.Split(message.Payload, separateString)
 			senderId, err := strconv.ParseInt(senderIdAndMessage[0], 10, 64)
 			if err != nil {
-				logs.ErrorLog("messagesErrors", fmt.Sprintf("Can not get sender id, file: %s", "chatConnection.go"), err)
+				logs.ErrorLog("messagesErrors", fmt.Sprintf("Can not get sender id, file: %s", "chatConnection.go; err:"), err)
 			}
 
 			select {
-			case <-usersUpdated:
+			case user := <-newUser:
+				chat.CreateUser(cs.GetChannel(), user)
+
 				for i := range Sessions {
 					if Sessions[i].Id == cs.Id {
 						cs.Peers = Sessions[i].Peers
@@ -63,9 +68,13 @@ func (cs *ChatSession) StartSubscriber() {
 				if senderId != user.Id {
 					msg, err := crypto.DecryptMessage([]byte(senderIdAndMessage[1]), cs.PrivateKey)
 					if err != nil {
-						logs.ErrorLog("chatError.log", fmt.Sprintf("Peer id: %v, Ssession id: %v, user id: %v", peer.Id, cs.Id, user.Id), err)
+						logs.ErrorLog("chatError.log", fmt.Sprintf("Peer id: %v, Ssession id: %v, user id: %v; err:", peer.Id, cs.Id, user.Id), err)
 					}
-					peer.WriteMessage(websocket.TextMessage, msg)
+					peer.WriteMessage(websocket.BinaryMessage, msg)
+
+					if string(msg) == LastChatMessage {
+						cs.MessageReceived <- string(msg)
+					}
 				}
 			}
 		}
