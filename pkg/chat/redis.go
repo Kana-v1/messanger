@@ -45,12 +45,12 @@ func init() {
 	}
 }
 
-func RemoveUser(users string, user string) {
-	redisContext.RemoveValue(users, user)
+func RemoveUser(session string, user string) {
+	redisContext.RemoveValue(session, user)
 }
 
-func CreateUser(users string, user string) {
-	redisContext.AddValue(users, user)
+func CreateUser(session string, user string) {
+	redisContext.AddValue(session, user)
 }
 
 func SendToChannel(msg string, channel string) {

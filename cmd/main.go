@@ -65,8 +65,9 @@ func webSocketHandler(rw http.ResponseWriter, req *http.Request) {
 
 	user := connection.NewUser()
 	peer = &connection.Peer{
-		Conn: webSockerConn,
-		Id:   3,
+		Conn:     webSockerConn,
+		Id:       3,
+		IsClosed: false,
 	}
 
 	user.Peers = append(user.Peers, *peer)
