@@ -1,6 +1,8 @@
-redis-server - start redis server
+redis-server
 
 
 export GOPATH=$HOME/go
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 
+sudo systemctl start mysqld
+mysql -u root -p   

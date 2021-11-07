@@ -1,10 +1,10 @@
 package symmetricCrypto
 
 import (
-	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"messanger/internal/logs"
+	"messanger/pkg/cryptography/hash"
 
 	"github.com/pkg/errors"
 )
@@ -23,7 +23,7 @@ func GenerateKeys() *CryptoKeys {
 }
 
 func EncryptMessage(msg []byte, publicKey *rsa.PublicKey) ([]byte, error) {
-	encryptedBytes, err := rsa.EncryptOAEP(crypto.SHA512.New(), rand.Reader, publicKey, msg, nil)
+	encryptedBytes, err := rsa.EncryptOAEP(hash.DefaultHasheAlgorithm.New(), rand.Reader, publicKey, msg, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Can not encrypt message")
 	}
@@ -31,7 +31,7 @@ func EncryptMessage(msg []byte, publicKey *rsa.PublicKey) ([]byte, error) {
 }
 
 func DecryptMessage(msg []byte, privateKey *CryptoKeys) ([]byte, error) {
-	decrytpedMessage, err := privateKey.Decrypt(nil, msg, &rsa.OAEPOptions{Hash: crypto.SHA512})
+	decrytpedMessage, err := privateKey.Decrypt(nil, msg, &rsa.OAEPOptions{Hash: hash.DefaultHasheAlgorithm})
 	if err != nil {
 		return nil, errors.Wrap(err, "Can not decrypt message")
 	}
