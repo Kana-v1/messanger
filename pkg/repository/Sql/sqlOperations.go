@@ -52,3 +52,18 @@ func (c *MySqlContext) Exist(table string, value interface{}) (interface{}, bool
 
 	return rec, true, nil
 }
+
+func (c *MySqlContext) AccountExist(hashedLog []byte, hashedPass []byte, acc interface{}) (bool, error){
+	c.Mutex.RLock()
+	defer c.Mutex.RUnlock()
+	err := c.DB.Table("Accounts").Where(map[string]interface{}{"log": hashedLog, "password": hashedPass}).Find(acc).Error
+	if err != nil {
+		return false, errors.Wrap(err, "Can not check if account exists")
+	}
+
+	if acc != nil {
+		return true, nil
+	}
+	
+	return false, nil
+}

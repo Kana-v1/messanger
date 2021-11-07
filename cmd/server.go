@@ -6,7 +6,6 @@ import (
 	_ "messanger/configs"
 	"messanger/internal/logs"
 	"messanger/pkg/authorization"
-	"messanger/pkg/authorization/jwt"
 	mySql "messanger/pkg/repository/Sql"
 	"messanger/pkg/server"
 	"net/http"
@@ -38,7 +37,8 @@ func main() {
 	}
 
 	e.GET("/*", server.WebSocketHandler)
-	e.POST("/SignUp", jwt.SignUp)
+	e.POST("/SignUp", server.SignUp)
+	e.POST("/SignIn", server.SignIn)
 	logs.FatalLog("server.log", "Can not start server", s.ListenAndServe())
 
 	go func() {

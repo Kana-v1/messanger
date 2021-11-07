@@ -1,5 +1,7 @@
 package authorization
 
+import sql "messanger/pkg/repository/Sql"
+
 type Account struct {
 	Id       int64
 	Log      []byte `gorm:schema:"-"`
@@ -17,4 +19,9 @@ type Tabler interface {
 
 func (Account) TableName() string {
 	return "Accounts"
+}
+
+func AccountExist(hashedLog []byte, hashedPassword []byte) (bool, error) {
+	logData := new(LogData)
+	return sql.SqlContext.AccountExist(hashedLog, hashedPassword, *logData)
 }

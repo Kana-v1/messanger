@@ -2,6 +2,7 @@ package server
 
 import (
 	"messanger/internal/logs"
+	"messanger/pkg/authorization/jwt"
 	"messanger/pkg/connection"
 	"net/http"
 
@@ -38,4 +39,35 @@ func WebSocketHandler(c echo.Context) error {
 	user.Peers = append(user.Peers, *peer)
 	user.Start(peer)
 	return c.String(http.StatusOK, "")
+}
+
+func SignIn(c echo.Context) error {
+	return jwt.SignIn(c)
+}
+
+func SignUp(c echo.Context) error {
+	return jwt.SignUp(c)
+}
+
+func RefreshToken(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		jwt.RefreshToken(c)
+		if err := next(c); err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func IsAuthorized(next echo.HandlerFunc) echo.HandlerFunc {
+	return func (c echo.Context) error {
+		if err, _ := jwt.IsAuthorized(c); err != nil {
+			return c.String(http.StatusUnauthorized, "You are unauthorized")
+		}
+
+		if err := next(c); err != nil {
+			return err
+		}
+		return nil
+	}
 }
