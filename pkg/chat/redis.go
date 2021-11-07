@@ -19,14 +19,14 @@ var (
 
 func init() {
 
-	var exit bool
-	redisHost, exit = os.LookupEnv("REDIS_HOST")
-	if !exit {
+	var exist bool
+	redisHost, exist = os.LookupEnv("REDIS_HOST")
+	if !exist {
 		logs.FatalLog("", "missing REDIS_HOST env var", nil)
 	}
 
-	redisPassword, exit = os.LookupEnv("REDIS_PASSWORD")
-	if !exit {
+	redisPassword, exist = os.LookupEnv("REDIS_PASSWORD")
+	if !exist {
 		logs.FatalLog("", "missing REDIS_PASSWORD env var", nil)
 	}
 	if redisPassword == "" {
