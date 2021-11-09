@@ -5,7 +5,6 @@ import (
 	"fmt"
 	_ "messanger/configs"
 	"messanger/internal/logs"
-	"messanger/pkg/authorization"
 	mySql "messanger/pkg/repository/Sql"
 	"messanger/pkg/server"
 	"net/http"
@@ -94,12 +93,12 @@ func startMySqlServer() {
 		DB:    db,
 	}
 
-	mySql.SqlContext.CreateTables("",
-		authorization.Account{
-			Id:       0,
-			Log:      make([]byte, 0),
-			Password: make([]byte, 0),
-		},
-	)
+	// mySql.SqlContext.CreateTables("",
+	// 	authorization.Account{
+	// 		Id:       0,
+	// 		Log:      make([]byte, 0),
+	// 		Password: make([]byte, 0),
+	// 	},
+	// )
 
 }

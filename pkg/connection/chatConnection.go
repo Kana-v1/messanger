@@ -12,8 +12,6 @@ import (
 	"messanger/internal/logs"
 	crypto "messanger/pkg/cryptography/symmetricCrypto"
 
-	"container/list"
-
 	"github.com/gorilla/websocket"
 )
 
@@ -23,13 +21,19 @@ var (
 	ChatId           int64
 	PeerId           int64
 	UserId           int64
-	Sessions         []ChatSession
-	InactiveSessions *InactiveSession
+	Sessions         map[int64]*ChatSession //TODO get from db, write to db. read all sessions to slice and write/read to db
+	InactiveSessions *InactiveChatSessions
+	newUser          chan string
+
+	Users map[int64]*User //TODO get from db, write to db. read all users to slice and write/read to db
+
+	//TODO use last user id from bd + 1
+	usersId int64
 )
 
-type InactiveSession struct {
-	List  *list.List
-	Mutex *sync.Mutex
+type InactiveChatSessions struct {
+	ChatSessionsId []int64
+	Mutex          *sync.Mutex `gorm:"-"`
 }
 
 type Message struct {
@@ -40,27 +44,32 @@ type Message struct {
 
 type ChatSession struct {
 	Id              int64
-	Peers           map[*User]*Peer
-	PrivateKey      *crypto.CryptoKeys
+	Peers           map[int64]*Peer //int64 - userId
+	PrivateKey      []byte          //[]byte encode to  privateKey
 	MessageReceived chan string
 	Messages        []Message
 	State           enums.ChatSessionState
 }
 
 func init() {
-	InactiveSessions = &InactiveSession{
-		List:  list.New(),
-		Mutex: new(sync.Mutex),
+	InactiveSessions = &InactiveChatSessions{
+		ChatSessionsId: make([]int64, 0),
+		Mutex:          new(sync.Mutex),
 	}
-	Sessions = make([]ChatSession, 0)
+	Sessions = make(map[int64]*ChatSession)
+	Users = make(map[int64]*User)
 }
 
 func (cs *ChatSession) StartSubscriber() {
 	go func() {
 		channel := cs.GetChannel()
 		sub := chat.Client.Subscribe(channel)
-		for user := range cs.Peers {
-			chat.CreateUser(cs.GetChannel(), user.Name)
+		for userId := range cs.Peers {
+			for _, user := range Users {
+				if user.Id == userId {
+					chat.CreateUser(cs.GetChannel(), user.Name)
+				}
+			}
 		}
 		messages := sub.Channel()
 		messageMutex := new(sync.Mutex)
@@ -85,8 +94,8 @@ func (cs *ChatSession) StartSubscriber() {
 						for i := range Sessions {
 							if Sessions[i].Id == cs.Id {
 								cs.Peers = Sessions[i].Peers
+								break
 							}
-							break
 						}
 					default:
 						continue
@@ -95,9 +104,26 @@ func (cs *ChatSession) StartSubscriber() {
 				}
 			}()
 
-			for receiver, peer := range cs.Peers {
-				if senderId != receiver.Id && !receiver.InBlackList(senderId){
-					msg, err := crypto.DecryptMessage([]byte(senderIdAndMessage[1]), cs.PrivateKey)
+			for receiverId, peer := range cs.Peers {
+				var receiver *User
+				for i := range Users {
+					if Users[i].Id == receiverId {
+						receiver = Users[i]
+						break
+					}
+				}
+				if receiver == nil {
+					logs.ErrorLog("getMessageError.log", fmt.Sprintf("Can not find message receiver with id %v", receiverId), nil)
+					continue
+				}
+
+				if senderId != receiver.Id && !receiver.InBlackList(senderId) {
+					privateKey, err := crypto.EncodePrivateKey(cs.PrivateKey)
+					if err != nil {
+						logs.ErrorLog("cryptoKeys.log", "", err)
+						return
+					}
+					msg, err := crypto.DecryptMessage([]byte(senderIdAndMessage[1]), privateKey)
 					if err != nil {
 						logs.ErrorLog("chatError.log", fmt.Sprintf("Peer id: %v, Ssession id: %v, user id: %v; err:", peer.Id, cs.Id, receiver.Id), err)
 					}
@@ -128,9 +154,26 @@ func (cs *ChatSession) GetChannel() string {
 }
 
 func (cs *ChatSession) deleteChat() {
-	for u, p := range cs.Peers {
+	for userId, p := range cs.Peers {
+		var u *User
+		for i := range Users {
+			if Users[i].Id == userId {
+				u = Users[i]
+				break
+			}
+		}
+		if u == nil {
+			logs.ErrorLog("deleteChatError.log", fmt.Sprintf("Can not find message user with id %v", userId), nil)
+			continue
+		}
 		p.IsClosed = true
-		msg, err := crypto.EncryptMessage([]byte(LastChatMessage), u.PublicKeys[cs.Id])
+
+		publicKey, err := crypto.EncodePublicKey(u.PublicKeys[cs.Id])
+		if err != nil {
+			logs.ErrorLog("cryptoKeys.log", "", err)
+			return
+		}
+		msg, err := crypto.EncryptMessage([]byte(LastChatMessage), publicKey)
 		if err != nil {
 			logs.ErrorLog("", "can not encrypt message while deleting chat. Err:", err)
 		}
@@ -144,8 +187,8 @@ func (cs *ChatSession) deleteChat() {
 
 		cs.State = enums.ChatClosed
 		cs.Messages = make([]Message, 0)
-		cs.Peers = make(map[*User]*Peer)
+		cs.Peers = make(map[int64]*Peer)
 
-		InactiveSessions.List.PushBack(*cs)
+		InactiveSessions.ChatSessionsId = append(InactiveSessions.ChatSessionsId, cs.Id)
 	}
 }
