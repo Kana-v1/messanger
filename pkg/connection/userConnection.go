@@ -14,16 +14,21 @@ const LastChatMessage = "You are the last user in chat, so chat and its history 
 
 type Peer struct {
 	Id              int64
-	*websocket.Conn //TODO recreate websocket conn foe when start db server and read users/peers from db
+	*websocket.Conn `gorm:"-"` //TODO recreate websocket conn when start db server and read users/peers from db
 	IsClosed        bool
+}
+
+type SessionId struct {
+	UserId    int64
+	SessionId int64
 }
 
 type User struct {
 	Id         int64
 	Name       string
-	Sessions   []int64
+	Sessions   []SessionId
 	Peers      []Peer
-	PublicKeys map[int64][]byte //[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key
+	PublicKeys map[int64][]byte //[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key. Saving key to the db obviously is not the best practise, but its ok for now
 	UsersList  map[int64]enums.UserType
 }
 
@@ -32,7 +37,7 @@ func NewUser() *User {
 	user := &User{
 		Id:         usersId,
 		Name:       fmt.Sprintf("%v_user", usersId),
-		Sessions:   make([]int64, 0),
+		Sessions:   make([]SessionId, 0),
 		Peers:      make([]Peer, 0),
 		PublicKeys: make(map[int64][]byte),
 		UsersList:  make(map[int64]enums.UserType),
@@ -46,6 +51,13 @@ func (u *User) disconnect() {
 		for userId, p := range chatSession.Peers {
 			if u.Id == userId {
 				chat.RemoveUser(chatSession.GetChannel(), u.Name)
+				for i, userPeer := range u.Peers {
+					if userPeer.Id == p.Id {
+						peers := u.Peers[:i]
+						peers = append(peers, u.Peers[i+1:]...)
+						u.Peers = peers
+					}
+				}
 				p.Close()
 				delete(chatSession.Peers, u.Id)
 				if len(chatSession.Peers) == 1 {
@@ -70,8 +82,11 @@ func (u *User) Start(peer *Peer) {
 				u.PublicKeys[sessionId] = crypto.GetPublicKeyFromPrivateKey(session.PrivateKey)
 
 				chatSession = session
-				chatSession.Peers[u.Id] = peer
-				u.Sessions = append(u.Sessions, session.Id)
+				chatSession.Peers[u.Id] = *peer
+				sId := &SessionId{
+					SessionId: session.Id,
+				}
+				u.Sessions = append(u.Sessions, *sId)
 
 				newUser <- u.Name
 
@@ -85,7 +100,7 @@ func (u *User) Start(peer *Peer) {
 		if len(InactiveSessions.ChatSessionsId) > 0 {
 			sessionId := InactiveSessions.ChatSessionsId[0]
 			InactiveSessions.ChatSessionsId = InactiveSessions.ChatSessionsId[1:]
-			chatSession = Sessions[sessionId] //надо проверить что стейт сессии в массиве меняется когда меняется стейт на 2 строки ниже
+			chatSession = Sessions[sessionId]
 			chatSession.State = enums.ChatActive
 			InactiveSessions.Mutex.Unlock()
 		} else {
@@ -100,10 +115,10 @@ func (u *User) Start(peer *Peer) {
 				Messages:        make([]Message, 0),
 			}
 		}
-		userPeer := make(map[int64]*Peer)
-		userPeer[u.Id] = peer
+		userPeer := make(map[int64]Peer)
+		userPeer[u.Id] = *peer
 		if chatSession.Peers == nil {
-			chatSession.Peers = make(map[int64]*Peer)
+			chatSession.Peers = make(map[int64]Peer)
 		}
 		chatSession.Peers = userPeer
 		u.PublicKeys[sessionId] = crypto.GetPublicKeyFromPrivateKey(chatSession.PrivateKey)

@@ -21,11 +21,11 @@ var (
 	ChatId           int64
 	PeerId           int64
 	UserId           int64
-	Sessions         map[int64]*ChatSession //TODO get from db, write to db. read all sessions to slice and write/read to db
+	Sessions         map[int64]*ChatSession
 	InactiveSessions *InactiveChatSessions
 	newUser          chan string
 
-	Users map[int64]*User //TODO get from db, write to db. read all users to slice and write/read to db
+	Users map[int64]*User
 
 	//TODO use last user id from bd + 1
 	usersId int64
@@ -44,9 +44,9 @@ type Message struct {
 
 type ChatSession struct {
 	Id              int64
-	Peers           map[int64]*Peer //int64 - userId
-	PrivateKey      []byte          //[]byte encode to  privateKey
-	MessageReceived chan string
+	Peers           map[int64]Peer //int64 - userId
+	PrivateKey      []byte         //[]byte encode to  privateKey
+	MessageReceived chan string    `gorm:"-"` //TODO recreate each time read from db
 	Messages        []Message
 	State           enums.ChatSessionState
 }
@@ -105,14 +105,8 @@ func (cs *ChatSession) StartSubscriber() {
 			}()
 
 			for receiverId, peer := range cs.Peers {
-				var receiver *User
-				for i := range Users {
-					if Users[i].Id == receiverId {
-						receiver = Users[i]
-						break
-					}
-				}
-				if receiver == nil {
+				receiver, ok := Users[receiverId]
+				if !ok {
 					logs.ErrorLog("getMessageError.log", fmt.Sprintf("Can not find message receiver with id %v", receiverId), nil)
 					continue
 				}
@@ -142,6 +136,7 @@ func (cs *ChatSession) StartSubscriber() {
 
 					if string(msg) == LastChatMessage {
 						cs.MessageReceived <- string(msg)
+						return //in case of reusing empty chat old chat object still run this goroutine, so there will be 2 goroutines for 1 chat session
 					}
 				}
 			}
@@ -163,7 +158,7 @@ func (cs *ChatSession) deleteChat() {
 			}
 		}
 		if u == nil {
-			logs.ErrorLog("deleteChatError.log", fmt.Sprintf("Can not find message user with id %v", userId), nil)
+			logs.ErrorLog("deleteChatError.log", fmt.Sprintf("Can not find user with id %v to delete chat", userId), nil)
 			continue
 		}
 		p.IsClosed = true
@@ -187,7 +182,7 @@ func (cs *ChatSession) deleteChat() {
 
 		cs.State = enums.ChatClosed
 		cs.Messages = make([]Message, 0)
-		cs.Peers = make(map[int64]*Peer)
+		cs.Peers = make(map[int64]Peer)
 
 		InactiveSessions.ChatSessionsId = append(InactiveSessions.ChatSessionsId, cs.Id)
 	}

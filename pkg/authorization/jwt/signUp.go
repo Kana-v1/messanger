@@ -35,7 +35,7 @@ func SignUp(c echo.Context) error {
 		return c.String(http.StatusConflict, "Account with same log already exist")
 	}
 
-	err := sql.SqlContext.AddValue("Accounts", newAcc)
+	err := sql.SqlContext.AddValues("Accounts", newAcc)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "", err)
 		return c.String(http.StatusInternalServerError, "Account has not been registered")
