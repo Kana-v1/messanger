@@ -18,25 +18,25 @@ import (
 const separateString = "SenderId"
 
 var (
-	ChatId           int64
-	PeerId           int64
-	UserId           int64
-	Sessions         map[int64]*ChatSession
-	InactiveSessions *InactiveChatSessions
-	newUser          chan string
-
-	Users map[int64]*User
+	ChatId                   int64
+	PeerId                   int64
+	UserId                   int64
+	Sessions                 map[int64]*ChatSession
+	InactiveSessions         []InactiveChatSession
+	inactiveChatSessionMutex = new(sync.Mutex)
+	newUser                  chan string
+	Users                    map[int64]*User
 
 	//TODO use last user id from bd + 1
 	usersId int64
 )
 
-type InactiveChatSessions struct {
-	ChatSessionsId []int64
-	Mutex          *sync.Mutex `gorm:"-"`
+type InactiveChatSession struct {
+	ChatSessionId int64
 }
 
 type Message struct {
+	ChatSessionId int64
 	Message []byte
 	Sender  int64
 	Time    time.Time
@@ -44,7 +44,7 @@ type Message struct {
 
 type ChatSession struct {
 	Id              int64
-	Peers           map[int64]Peer //int64 - userId
+	Peers           map[int64]Peer `gorm:"-"` //int64 - userId
 	PrivateKey      []byte         //[]byte encode to  privateKey
 	MessageReceived chan string    `gorm:"-"` //TODO recreate each time read from db
 	Messages        []Message
@@ -52,10 +52,7 @@ type ChatSession struct {
 }
 
 func init() {
-	InactiveSessions = &InactiveChatSessions{
-		ChatSessionsId: make([]int64, 0),
-		Mutex:          new(sync.Mutex),
-	}
+	InactiveSessions = make([]InactiveChatSession, 0)
 	Sessions = make(map[int64]*ChatSession)
 	Users = make(map[int64]*User)
 }
@@ -183,7 +180,8 @@ func (cs *ChatSession) deleteChat() {
 		cs.State = enums.ChatClosed
 		cs.Messages = make([]Message, 0)
 		cs.Peers = make(map[int64]Peer)
+		inactiveSession := &InactiveChatSession{cs.Id}
 
-		InactiveSessions.ChatSessionsId = append(InactiveSessions.ChatSessionsId, cs.Id)
+		InactiveSessions = append(InactiveSessions, *inactiveSession)
 	}
 }

@@ -13,9 +13,10 @@ import (
 const LastChatMessage = "You are the last user in chat, so chat and its history will be deleted"
 
 type Peer struct {
-	Id              int64
-	*websocket.Conn `gorm:"-"` //TODO recreate websocket conn when start db server and read users/peers from db
-	IsClosed        bool
+	Id                int64
+	ChatSessionPeerId int64
+	*websocket.Conn   `gorm:"-"` //TODO recreate websocket conn when start db server and read users/peers from db
+	IsClosed          bool
 }
 
 type SessionId struct {
@@ -27,9 +28,9 @@ type User struct {
 	Id         int64
 	Name       string
 	Sessions   []SessionId
-	Peers      []Peer
-	PublicKeys map[int64][]byte //[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key. Saving key to the db obviously is not the best practise, but its ok for now
-	UsersList  map[int64]enums.UserType
+	Peers      []Peer           `gorm:"-"`
+	PublicKeys map[int64][]byte `gorm:"-"`//[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key. Saving key to the db obviously is not the best practise, but its ok for now
+	UsersList  map[int64]enums.UserType `gorm:"-"`
 }
 
 func NewUser() *User {
@@ -96,15 +97,15 @@ func (u *User) Start(peer *Peer) {
 	}
 
 	if chatSession == nil {
-		InactiveSessions.Mutex.Lock()
-		if len(InactiveSessions.ChatSessionsId) > 0 {
-			sessionId := InactiveSessions.ChatSessionsId[0]
-			InactiveSessions.ChatSessionsId = InactiveSessions.ChatSessionsId[1:]
+		inactiveChatSessionMutex.Lock()
+		if len(InactiveSessions) > 0 {
+			sessionId := InactiveSessions[0].ChatSessionId
+			InactiveSessions = InactiveSessions[1:]
 			chatSession = Sessions[sessionId]
 			chatSession.State = enums.ChatActive
-			InactiveSessions.Mutex.Unlock()
+			inactiveChatSessionMutex.Unlock()
 		} else {
-			InactiveSessions.Mutex.Unlock()
+			inactiveChatSessionMutex.Unlock()
 
 			sessionId = ChatId
 			ChatId++
