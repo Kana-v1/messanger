@@ -272,7 +272,7 @@ func (u *User) GetUserFriends() {
 		}
 	}
 }
-func (u *User) SaveFriendList() {
+func (u *User) SaveFriendFriends() {
 	friendList := make([]UserFriendList, 0)
 	for friendId, friendType := range u.UsersList {
 		userFriend := &UserFriendList {
