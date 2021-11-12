@@ -45,7 +45,7 @@ func (c *MySqlContext) Exist(table string, values ...interface{}) ([]interface{}
 	defer c.Mutex.RUnlock()
 	res := make([]interface{}, 0)
 	for _, value := range values {
-		rec := c.DB.Table(table).Find(value)
+		rec := c.DB.Table(table).Find(&value)
 		if rec.Error != nil {
 			return nil, false, errors.Wrap(rec.Error, fmt.Sprintf("Can not get value %v", value))
 		}

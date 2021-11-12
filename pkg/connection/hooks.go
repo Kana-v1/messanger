@@ -22,7 +22,5 @@ func (u *User) AfterFind(tx *gorm.DB) (err error) {
 func (u *User) BeforeSave(tx *gorm.DB) (err error) {
 	u.SaveChatPublicKey()
 	u.SaveFriendFriends()
-	return	
+	return
 }
-
-

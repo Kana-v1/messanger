@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "messanger/configs"
 	"messanger/internal/logs"
+	"messanger/pkg/connection"
 	mySql "messanger/pkg/repository/Sql"
 	"messanger/pkg/server"
 	"net/http"
@@ -29,6 +30,9 @@ func main() {
 	}
 	startMySqlServer()
 
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop)
+
 	e := echo.New()
 	s := http.Server{
 		Addr:    ":" + port,
@@ -38,22 +42,20 @@ func main() {
 	e.GET("/*", server.WebSocketHandler)
 	e.POST("/SignUp", server.SignUp)
 	e.POST("/SignIn", server.SignIn)
-	logs.FatalLog("server.log", "Can not start server", s.ListenAndServe())
 
 	go func() {
-		err := s.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			logs.FatalLog("", "failed to start server", err)
-		}
+		stopServer(s, stop)
 	}()
-	dontStop := make(chan int)
-	<-dontStop
-	stopServer(s)
+	logs.FatalLog("server.log", "Can not start server", s.ListenAndServe())
+
+	//dontStop := make(chan int)
+	// <-dontStop
+
 }
 
-func stopServer(s http.Server) {
-	stop := make(chan os.Signal)
-	signal.Notify(stop)
+func stopServer(s http.Server, stop <-chan os.Signal) {
+	fmt.Println("awd")
+	saveData()
 	<-stop
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -142,5 +144,18 @@ func startMySqlServer() {
 	// 	UserId:    -1,
 	// 	SessionId: -1,
 	// },
+	getData()
 
+}
+
+func saveData() {
+	connection.SaveChatSessions()
+	connection.SaveUsers()
+	connection.SaveInactiveSessions()
+}
+
+func getData() {
+	connection.GetChatSessions()
+	connection.GetUsers()
+	connection.GetInactiveSession()
 }

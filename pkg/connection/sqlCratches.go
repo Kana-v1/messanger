@@ -19,14 +19,14 @@ func SaveChatSessions() {
 		sessions = append(sessions, *session)
 	}
 
-	err := sql.SqlContext.AddValues("chat_session", sessions)
+	err := sql.SqlContext.AddValues("chat_sessions", sessions)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not save chat sessions; err:", err)
 	}
 }
 
 func GetChatSessions() map[int64]*ChatSession {
-	sessions, err := sql.SqlContext.GetValues("chat_session", make([]ChatSession, 0))
+	sessions, err := sql.SqlContext.GetValues("chat_sessions", make([]ChatSession, 0))
 	res := make(map[int64]*ChatSession)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get chat sessions; err:", err)
@@ -49,17 +49,17 @@ func SaveUsers() {
 		users = append(users, *user)
 	}
 
-	err := sql.SqlContext.AddValues("user", users)
+	err := sql.SqlContext.AddValues("users", users)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not save users; err:", err)
 	}
 }
 
 func GetUsers() map[int64]*User {
-	users, err := sql.SqlContext.GetValues("user", make([]User, 0))
+	users, err := sql.SqlContext.GetValues("users", make([]User, 0))
 	res := make(map[int64]*User)
 	if err != nil {
-		logs.ErrorLog("sqlError.log", "Can not get chat sessions; err:", err)
+		logs.ErrorLog("sqlError.log", "Can not get chat users; err:", err)
 		return nil
 	}
 	for _, user := range users {
@@ -75,7 +75,7 @@ func GetUsers() map[int64]*User {
 
 func SaveInactiveSessions() {
 	for _, session := range InactiveSessions {
-		err := sql.SqlContext.AddValues("inactive_session", session)
+		err := sql.SqlContext.AddValues("inactive_chat_sessions", session)
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not save inactive chat session; err:", err)
 			return
@@ -84,7 +84,7 @@ func SaveInactiveSessions() {
 }
 
 func GetInactiveSession() []InactiveChatSession {
-	sessions, err := sql.SqlContext.GetValues("inactive_session", make([]InactiveChatSession, 0))
+	sessions, err := sql.SqlContext.GetValues("inactive_chat_sessions", make([]InactiveChatSession, 0))
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get inactive chat sessions; err:", err)
 		return nil
@@ -131,7 +131,7 @@ func (cs *ChatSession) SaveChatSessionPeers() {
 		}
 	}
 
-	err := sql.SqlContext.AddValues("chat_session_peer", sesPeers)
+	err := sql.SqlContext.AddValues("chat_session_peers", sesPeers)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", fmt.Sprintf("Can not save chatSession(Id: %v) peers; err:", cs.Id), err)
 	}
@@ -147,7 +147,7 @@ func (cs *ChatSession) GetChatSessionPeers() {
 	var err error
 
 	if sessionPeers == nil {
-		sessionsPeers, err = sql.SqlContext.GetValues("chat_session_peer", make([]ChatSessionPeer, 0))
+		sessionsPeers, err = sql.SqlContext.GetValues("chat_session_peers", make([]ChatSessionPeer, 0))
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get chatSessionPeers; err:", err)
 			return
@@ -175,7 +175,7 @@ func (u *User) GetUserPeers() {
 	var err error
 
 	if sessionPeers == nil {
-		userPeers, err = sql.SqlContext.GetValues("chat_session_peer", make([]ChatSessionPeer, 0))
+		userPeers, err = sql.SqlContext.GetValues("chat_session_peers", make([]ChatSessionPeer, 0))
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get chatSessionPeers; err:", err)
 			return
@@ -203,7 +203,7 @@ type UserPublicKey struct {
 
 func (u *User) GetChatPublicKey() {
 	if userPublicKeys == nil {
-		upk, err := sql.SqlContext.GetValues("user_public_key", make([]UserPublicKey, 0))
+		upk, err := sql.SqlContext.GetValues("user_public_keys", make([]UserPublicKey, 0))
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get userPublicKey; err:", err)
 			return
@@ -237,7 +237,7 @@ func (u *User) SaveChatPublicKey() {
 		userPublicKeys = append(userPublicKeys, *userPublicKey)
 	}
 
-	err := sql.SqlContext.AddValues("user_public_key", userPublicKeys)
+	err := sql.SqlContext.AddValues("user_public_keys", userPublicKeys)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", fmt.Sprintf("Can not save user's (Id: %v) public keys; err:", u.Id), err)
 	}
@@ -248,9 +248,10 @@ type UserFriendList struct {
 	FriendId   int64
 	FriendType enums.UserType
 }
+
 func (u *User) GetUserFriends() {
 	if userFriendList == nil {
-		ufl, err := sql.SqlContext.GetValues("user_friend_list", make([]UserFriendList, 0))
+		ufl, err := sql.SqlContext.GetValues("user_friend_lists", make([]UserFriendList, 0))
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get userFriendList; err:", err)
 			return
@@ -275,16 +276,15 @@ func (u *User) GetUserFriends() {
 func (u *User) SaveFriendFriends() {
 	friendList := make([]UserFriendList, 0)
 	for friendId, friendType := range u.UsersList {
-		userFriend := &UserFriendList {
-			UserId: u.Id,
-			FriendId: friendId,
+		userFriend := &UserFriendList{
+			UserId:     u.Id,
+			FriendId:   friendId,
 			FriendType: friendType,
 		}
 		friendList = append(friendList, *userFriend)
 	}
-	err := sql.SqlContext.AddValues("user_friend_list", friendList)
+	err := sql.SqlContext.AddValues("user_friend_lists", friendList)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", fmt.Sprintf("Can not save user's(Id: %v) friends", u.Id), err)
 	}
 }
-
