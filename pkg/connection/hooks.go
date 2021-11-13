@@ -3,11 +3,11 @@ package connection
 import "gorm.io/gorm"
 
 func (cs *ChatSession) AfterFind(tx *gorm.DB) (err error) {
-	cs.GetChatSessionPeers()
+	cs.GetChatSessionPeers(true)
 	return
 }
 
-func (cs *ChatSession) BeforeSave(tx *gorm.DB) (err error) {
+func (cs *ChatSession) BeforeCreate(tx *gorm.DB) (err error) {
 	cs.SaveChatSessionPeers()
 	return
 }
@@ -19,7 +19,7 @@ func (u *User) AfterFind(tx *gorm.DB) (err error) {
 	return
 }
 
-func (u *User) BeforeSave(tx *gorm.DB) (err error) {
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	u.SaveChatPublicKey()
 	u.SaveFriendFriends()
 	return

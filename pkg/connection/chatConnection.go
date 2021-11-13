@@ -36,10 +36,11 @@ type InactiveChatSession struct {
 }
 
 type Message struct {
+	Id int64
 	ChatSessionId int64
-	Message []byte
-	Sender  int64
-	Time    time.Time
+	Message       []byte
+	Sender        int64
+	Time          time.Time
 }
 
 type ChatSession struct {
@@ -184,4 +185,5 @@ func (cs *ChatSession) deleteChat() {
 
 		InactiveSessions = append(InactiveSessions, *inactiveSession)
 	}
+	
 }

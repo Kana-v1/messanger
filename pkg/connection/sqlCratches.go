@@ -19,14 +19,14 @@ func SaveChatSessions() {
 		sessions = append(sessions, *session)
 	}
 
-	err := sql.SqlContext.AddValues("chat_sessions", sessions)
+	err := sql.SqlContext.AddValuesThreadSafe("chat_sessions", sessions)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not save chat sessions; err:", err)
 	}
 }
 
 func GetChatSessions() map[int64]*ChatSession {
-	sessions, err := sql.SqlContext.GetValues("chat_sessions", make([]ChatSession, 0))
+	sessions, err := sql.SqlContext.GetValuesThreadSafe("chat_sessions", make([]ChatSession, 0))
 	res := make(map[int64]*ChatSession)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get chat sessions; err:", err)
@@ -39,7 +39,11 @@ func GetChatSessions() map[int64]*ChatSession {
 			return nil
 		}
 		res[s.Id] = &s
+		if ChatId < s.Id {
+			ChatId = s.Id
+		}
 	}
+	ChatId++
 	return res
 }
 
@@ -49,14 +53,14 @@ func SaveUsers() {
 		users = append(users, *user)
 	}
 
-	err := sql.SqlContext.AddValues("users", users)
+	err := sql.SqlContext.AddValuesThreadSafe("users", users)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not save users; err:", err)
 	}
 }
 
 func GetUsers() map[int64]*User {
-	users, err := sql.SqlContext.GetValues("users", make([]User, 0))
+	users, err := sql.SqlContext.GetValuesThreadSafe("users", make([]User, 0))
 	res := make(map[int64]*User)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get chat users; err:", err)
@@ -69,22 +73,30 @@ func GetUsers() map[int64]*User {
 			return nil
 		}
 		res[u.Id] = &u
+		if UserId < u.Id {
+			UserId = u.Id
+		}
 	}
+	UserId++
 	return res
 }
 
 func SaveInactiveSessions() {
+	var sessionsToUpdate []ChatSession
 	for _, session := range InactiveSessions {
-		err := sql.SqlContext.AddValues("inactive_chat_sessions", session)
+		err := sql.SqlContext.AddValuesThreadSafe("inactive_chat_sessions", session)
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not save inactive chat session; err:", err)
-			return
+			break
 		}
+		sessionsToUpdate = append(sessionsToUpdate, *Sessions[session.ChatSessionId])
 	}
+	err := sql.SqlContext.UpdateValues(sessionsToUpdate)
+	logs.ErrorLog("sqlError.log", "Can not update session's columns; err: ", err)
 }
 
 func GetInactiveSession() []InactiveChatSession {
-	sessions, err := sql.SqlContext.GetValues("inactive_chat_sessions", make([]InactiveChatSession, 0))
+	sessions, err := sql.SqlContext.GetValuesThreadSafe("inactive_chat_sessions", make([]InactiveChatSession, 0))
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get inactive chat sessions; err:", err)
 		return nil
@@ -142,12 +154,17 @@ func (cs *ChatSession) SaveChatSessionPeers() {
 	}
 }
 
-func (cs *ChatSession) GetChatSessionPeers() {
+func (cs *ChatSession) GetChatSessionPeers(safe bool) {
 	var sessionsPeers []interface{}
 	var err error
 
 	if sessionPeers == nil {
-		sessionsPeers, err = sql.SqlContext.GetValues("chat_session_peers", make([]ChatSessionPeer, 0))
+		if safe {
+			sessionsPeers, err = sql.SqlContext.GetValuesThreadSafe("chat_session_peers", make([]ChatSessionPeer, 0))
+		} else {
+			sessionsPeers, err = sql.SqlContext.GetValues("chat_session_peers", make([]ChatSessionPeer, 0))
+		}
+
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get chatSessionPeers; err:", err)
 			return
@@ -175,7 +192,7 @@ func (u *User) GetUserPeers() {
 	var err error
 
 	if sessionPeers == nil {
-		userPeers, err = sql.SqlContext.GetValues("chat_session_peers", make([]ChatSessionPeer, 0))
+		userPeers, err = sql.SqlContext.GetValuesThreadSafe("chat_session_peers", make([]ChatSessionPeer, 0))
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get chatSessionPeers; err:", err)
 			return
@@ -203,7 +220,7 @@ type UserPublicKey struct {
 
 func (u *User) GetChatPublicKey() {
 	if userPublicKeys == nil {
-		upk, err := sql.SqlContext.GetValues("user_public_keys", make([]UserPublicKey, 0))
+		upk, err := sql.SqlContext.GetValuesThreadSafe("user_public_keys", make([]UserPublicKey, 0))
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get userPublicKey; err:", err)
 			return
@@ -251,7 +268,7 @@ type UserFriendList struct {
 
 func (u *User) GetUserFriends() {
 	if userFriendList == nil {
-		ufl, err := sql.SqlContext.GetValues("user_friend_lists", make([]UserFriendList, 0))
+		ufl, err := sql.SqlContext.GetValuesThreadSafe("user_friend_lists", make([]UserFriendList, 0))
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get userFriendList; err:", err)
 			return

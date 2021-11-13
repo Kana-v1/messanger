@@ -30,9 +30,6 @@ func main() {
 	}
 	startMySqlServer()
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop)
-
 	e := echo.New()
 	s := http.Server{
 		Addr:    ":" + port,
@@ -44,20 +41,28 @@ func main() {
 	e.POST("/SignIn", server.SignIn)
 
 	go func() {
-		stopServer(s, stop)
+		stopServer(s)
 	}()
 	logs.FatalLog("server.log", "Can not start server", s.ListenAndServe())
 
-	//dontStop := make(chan int)
-	// <-dontStop
+	go func() {
+		for {
+			<-time.After(5 * time.Minute)
+			saveData()
+		}
+	}()
+
+	dontStop := make(chan int)
+	<-dontStop
 
 }
 
-func stopServer(s http.Server, stop <-chan os.Signal) {
-	fmt.Println("awd")
-	saveData()
+func stopServer(s http.Server) {
+	stop := make(chan os.Signal)
+	signal.Notify(stop)
 	<-stop
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	saveData()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	s.Shutdown(ctx)
@@ -95,55 +100,57 @@ func startMySqlServer() {
 		DB:    db,
 	}
 
-	mySql.SqlContext.CreateTables("") // authorization.Account{
-	// 	Id:       0,
-	// 	Log:      make([]byte, 0),
-	// 	Password: make([]byte, 0),
-	// },
-	// connection.InactiveChatSession{
-	// 	ChatSessionId: -1,
-	// },
-	// connection.Message{
-	// 	Message: make([]byte, 0),
-	// 	Sender:  -1,
-	// 	Time:    time.Now(),
-	// },
-	// connection.ChatSessionPeer {
-	// 	SessionId: -1,
-	// 	Peer:  connection.Peer{Id: -1, IsClosed: false},
-	// 	UserId: -1,
-	// },
-	// connection.ChatSession{
-	// 	Id:         -1,
-	// 	PrivateKey: make([]byte, 0),
-	// 	Messages:   make([]connection.Message, 0),
-	// 	State:      1,
-	// },
-	// connection.Peer{
-	// 	Id:       -1,
-	// 	IsClosed: true,
-	// },
-	// connection.UserPublicKey{
-	// 	UserId:    -1,
-	// 	ChatId:    -1,
-	// 	PublicKey: make([]byte, 0),
-	// },
-	// connection.UserFriendList{
-	// 	UserId:     -1,
-	// 	FriendId:   -1,
-	// 	FriendType: 0,
-	// },
-	// connection.User{
-	// 	Id:         -1,
-	// 	Name:       "SomeName",
-	// 	Sessions:   make([]connection.SessionId, 0),
-	// 	PublicKeys: make(map[int64][]byte),
-	// 	UsersList:  make(map[int64]enums.UserType),
-	// },
-	// connection.SessionId{
-	// 	UserId:    -1,
-	// 	SessionId: -1,
-	// },
+	//mySql.SqlContext.CreateTables("", // authorization.Account{
+		// 	Id:       0,
+		// 	Log:      make([]byte, 0),
+		// 	Password: make([]byte, 0),
+		// },
+		// connection.InactiveChatSession{
+		// 	ChatSessionId: -1,
+		// },
+		// connection.Message{
+		// 	Id:            -1,
+		// 	ChatSessionId: -1,
+		// 	Message:       make([]byte, 0),
+		// 	Sender:        -1,
+		// 	Time:          time.Now(),
+		// },
+		// connection.ChatSessionPeer {
+		// 	SessionId: -1,
+		// 	Peer:  connection.Peer{Id: -1, IsClosed: false},
+		// 	UserId: -1,
+		// },
+		// connection.ChatSession{
+		// 	Id:         -1,
+		// 	PrivateKey: make([]byte, 0),
+		// 	Messages:   make([]connection.Message, 0),
+		// 	State:      1,
+		// },
+		// connection.Peer{
+		// 	Id:       -1,
+		// 	IsClosed: true,
+		// },
+		// connection.UserPublicKey{
+		// 	UserId:    -1,
+		// 	ChatId:    -1,
+		// 	PublicKey: make([]byte, 0),
+		// },
+		// connection.UserFriendList{
+		// 	UserId:     -1,
+		// 	FriendId:   -1,
+		// 	FriendType: 0,
+		// },
+		// connection.User{
+		// 	Id:         -1,
+		// 	Name:       "SomeName",
+		// 	Sessions:   make([]connection.SessionId, 0),
+		// 	PublicKeys: make(map[int64][]byte),
+		// 	UsersList:  make(map[int64]enums.UserType),
+		// },
+		// connection.SessionId{
+		// 	UserId:    -1,
+		// 	SessionId: -1,
+		// })
 	getData()
 
 }
@@ -155,7 +162,7 @@ func saveData() {
 }
 
 func getData() {
-	connection.GetChatSessions()
-	connection.GetUsers()
-	connection.GetInactiveSession()
+	connection.Sessions = connection.GetChatSessions()
+	connection.Users = connection.GetUsers()
+	connection.InactiveSessions = connection.GetInactiveSession()
 }
