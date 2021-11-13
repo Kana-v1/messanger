@@ -9,17 +9,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-type CryptoKeys struct {
-	*rsa.PrivateKey
-}
-
-func GenerateKeys() *CryptoKeys {
+func GenerateKeys() *rsa.PrivateKey {
 	keys, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		logs.ErrorLog("cryptoError.log", "Can not generate crypro key", err)
 		return nil
 	}
-	return &CryptoKeys{keys}
+	return keys
 }
 
 func EncryptMessage(msg []byte, publicKey *rsa.PublicKey) ([]byte, error) {
@@ -30,7 +26,7 @@ func EncryptMessage(msg []byte, publicKey *rsa.PublicKey) ([]byte, error) {
 	return encryptedBytes, nil
 }
 
-func DecryptMessage(msg []byte, privateKey *CryptoKeys) ([]byte, error) {
+func DecryptMessage(msg []byte, privateKey *rsa.PrivateKey) ([]byte, error) {
 	decrytpedMessage, err := privateKey.Decrypt(nil, msg, &rsa.OAEPOptions{Hash: hash.DefaultHasheAlgorithm})
 	if err != nil {
 		return nil, errors.Wrap(err, "Can not decrypt message")
