@@ -1,6 +1,6 @@
 package authorization
 
-import sql "messanger/pkg/repository/Sql"
+import sql "messanger/pkg/database/Sql"
 
 type Account struct {
 	Id       int64

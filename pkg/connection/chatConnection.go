@@ -26,9 +26,6 @@ var (
 	inactiveChatSessionMutex = new(sync.Mutex)
 	newUser                  chan string
 	Users                    map[int64]*User
-
-	//TODO use last user id from bd + 1
-	usersId int64
 )
 
 type InactiveChatSession struct {
@@ -36,11 +33,11 @@ type InactiveChatSession struct {
 }
 
 type Message struct {
-	Id int64
+	Id            int64
 	ChatSessionId int64
 	Message       []byte
 	Sender        int64
-	Time          time.Time
+	Time          string
 }
 
 type ChatSession struct {
@@ -124,10 +121,11 @@ func (cs *ChatSession) StartSubscriber() {
 					//maybe it can bee too many gorutines if there are 100 users in chat that writes at the same time, but if u have 100 users in chat u probably have 100 chats that run async
 					go func() {
 						messageMutex.Lock()
+						time := time.Now()
 						cs.Messages = append(cs.Messages, Message{
 							Message: []byte(senderIdAndMessage[1]),
 							Sender:  senderId,
-							Time:    time.Now(),
+							Time:    time.Local().String(),
 						})
 						messageMutex.Unlock()
 					}()
@@ -185,5 +183,5 @@ func (cs *ChatSession) deleteChat() {
 
 		InactiveSessions = append(InactiveSessions, *inactiveSession)
 	}
-	
+
 }

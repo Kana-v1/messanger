@@ -3,8 +3,8 @@ package connection
 import (
 	"fmt"
 	"messanger/internal/logs"
+	sql "messanger/pkg/database/Sql"
 	"messanger/pkg/enums"
-	sql "messanger/pkg/repository/Sql"
 )
 
 var sessionPeers []ChatSessionPeer
@@ -25,26 +25,24 @@ func SaveChatSessions() {
 	}
 }
 
-func GetChatSessions() map[int64]*ChatSession {
-	sessions, err := sql.SqlContext.GetValuesThreadSafe("chat_sessions", make([]ChatSession, 0))
-	res := make(map[int64]*ChatSession)
+func GetChatSessions() (chatSessions map[int64]*ChatSession, inactiveChatSessions []InactiveChatSession) {
+	sessions, err := LoadChatSession()
+	chatSessions = make(map[int64]*ChatSession)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get chat sessions; err:", err)
-		return nil
+		return nil, nil
 	}
-	for _, session := range sessions {
-		s, ok := session.(ChatSession)
-		if !ok {
-			logs.ErrorLog("sqlError.log", "Can not extract chat session from interface{}", nil)
-			return nil
+	for i, s := range sessions {
+		if s.State == -1 {
+			inactiveChatSessions = append(inactiveChatSessions, InactiveChatSession{ChatSessionId: s.Id})
 		}
-		res[s.Id] = &s
+		chatSessions[sessions[i].Id] = &sessions[i]
 		if ChatId < s.Id {
 			ChatId = s.Id
 		}
 	}
 	ChatId++
-	return res
+	return
 }
 
 func SaveUsers() {
@@ -60,18 +58,13 @@ func SaveUsers() {
 }
 
 func GetUsers() map[int64]*User {
-	users, err := sql.SqlContext.GetValuesThreadSafe("users", make([]User, 0))
+	users, err := LoadUsers()
 	res := make(map[int64]*User)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get chat users; err:", err)
 		return nil
 	}
-	for _, user := range users {
-		u, ok := user.(User)
-		if !ok {
-			logs.ErrorLog("sqlError.log", "Can not extract chat session from interface{}", nil)
-			return nil
-		}
+	for _, u := range users {
 		res[u.Id] = &u
 		if UserId < u.Id {
 			UserId = u.Id
@@ -96,18 +89,19 @@ func SaveInactiveSessions() {
 }
 
 func GetInactiveSession() []InactiveChatSession {
-	sessions, err := sql.SqlContext.GetValuesThreadSafe("inactive_chat_sessions", make([]InactiveChatSession, 0))
+	sessions := make([]InactiveChatSession, 0)
+	err := sql.SqlContext.GetValuesThreadSafe("inactive_chat_sessions", sessions)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "Can not get inactive chat sessions; err:", err)
 		return nil
 	}
 	res := make([]InactiveChatSession, 0)
-	for _, session := range sessions {
-		s, ok := session.(InactiveChatSession)
-		if !ok {
-			logs.ErrorLog("sqlError.log", "Can not extract inactive chat session from interface{}", nil)
-			return nil
-		}
+	for _, s := range sessions {
+		// s, ok := session.(InactiveChatSession)
+		// if !ok {
+		// 	logs.ErrorLog("sqlError.log", "Can not extract inactive chat session from interface{}", nil)
+		// 	return nil
+		// }
 		res = append(res, s)
 	}
 	return res
@@ -160,9 +154,9 @@ func (cs *ChatSession) GetChatSessionPeers(safe bool) {
 
 	if sessionPeers == nil {
 		if safe {
-			sessionsPeers, err = sql.SqlContext.GetValuesThreadSafe("chat_session_peers", make([]ChatSessionPeer, 0))
+			err = sql.SqlContext.GetValuesThreadSafe("chat_session_peers", sessionsPeers)
 		} else {
-			sessionsPeers, err = sql.SqlContext.GetValues("chat_session_peers", make([]ChatSessionPeer, 0))
+			err = sql.SqlContext.GetValues("chat_session_peers", sessionsPeers)
 		}
 
 		if err != nil {
@@ -188,22 +182,22 @@ func (cs *ChatSession) GetChatSessionPeers(safe bool) {
 }
 
 func (u *User) GetUserPeers() {
-	var userPeers []interface{}
+	userPeers := make([]ChatSessionPeer, 0)
 	var err error
 
 	if sessionPeers == nil {
-		userPeers, err = sql.SqlContext.GetValuesThreadSafe("chat_session_peers", make([]ChatSessionPeer, 0))
+		err = sql.SqlContext.GetValuesThreadSafe("chat_session_peers", userPeers)
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get chatSessionPeers; err:", err)
 			return
 		}
 	}
-	for _, userPeer := range userPeers {
-		up, ok := userPeer.(ChatSessionPeer)
-		if !ok {
-			logs.ErrorLog("sqlError.log", "Can not extract chatSessionPeer from interface{}", nil)
-			return
-		}
+	for _, up := range userPeers {
+		// up, ok := userPeer.(ChatSessionPeer)
+		// if !ok {
+		// 	logs.ErrorLog("sqlError.log", "Can not extract chatSessionPeer from interface{}", nil)
+		// 	return
+		// }
 		if up.UserId == u.Id {
 			u.Peers = append(u.Peers, up.Peer)
 		}
@@ -219,19 +213,20 @@ type UserPublicKey struct {
 }
 
 func (u *User) GetChatPublicKey() {
+	upk := make([]UserPublicKey, 0)
 	if userPublicKeys == nil {
-		upk, err := sql.SqlContext.GetValuesThreadSafe("user_public_keys", make([]UserPublicKey, 0))
+		err := sql.SqlContext.GetValuesThreadSafe("user_public_keys", upk)
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get userPublicKey; err:", err)
 			return
 		}
 
-		for _, userPubKey := range upk {
-			userPublicKey, ok := userPubKey.(UserPublicKey)
-			if !ok {
-				logs.ErrorLog("sqlError.log", "Can not extract userPublicKey from interface{}", nil)
-				return
-			}
+		for _, userPublicKey := range upk {
+			// userPublicKey, ok := userPubKey.(UserPublicKey)
+			// if !ok {
+			// 	logs.ErrorLog("sqlError.log", "Can not extract userPublicKey from interface{}", nil)
+			// 	return
+			// }
 			userPublicKeys = append(userPublicKeys, userPublicKey)
 		}
 	}
@@ -267,19 +262,20 @@ type UserFriendList struct {
 }
 
 func (u *User) GetUserFriends() {
+	ufl := make([]UserFriendList, 0)
 	if userFriendList == nil {
-		ufl, err := sql.SqlContext.GetValuesThreadSafe("user_friend_lists", make([]UserFriendList, 0))
+		err := sql.SqlContext.GetValuesThreadSafe("user_friend_lists", ufl)
 		if err != nil {
 			logs.ErrorLog("sqlError.log", "Can not get userFriendList; err:", err)
 			return
 		}
 
-		for _, userFriend := range ufl {
-			uf, ok := userFriend.(UserFriendList)
-			if !ok {
-				logs.ErrorLog("sqlError.log", "Can not extract userFriendList from interface{}", nil)
-				return
-			}
+		for _, uf := range ufl {
+			// uf, ok := userFriend.(UserFriendList)
+			// if !ok {
+			// 	logs.ErrorLog("sqlError.log", "Can not extract userFriendList from interface{}", nil)
+			// 	return
+			// }
 			userFriendList = append(userFriendList, uf)
 		}
 	}

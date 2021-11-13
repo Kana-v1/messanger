@@ -4,7 +4,7 @@ import (
 	"messanger/internal/logs"
 	"messanger/pkg/authorization"
 	"messanger/pkg/cryptography/hash"
-	sql "messanger/pkg/repository/Sql"
+	sql "messanger/pkg/database/Sql"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -28,7 +28,7 @@ func SignUp(c echo.Context) error {
 		Password: hashedPassword,
 	}
 
-	if _, exist, err := sql.SqlContext.ExistThreadSafe("Accounts", newAcc); err != nil {
+	if exist, err := sql.SqlContext.ExistThreadSafe("Accounts", newAcc); err != nil {
 		logs.ErrorLog("sqlError.log", "", err)
 		return c.String(http.StatusInternalServerError, "Account has not been registered")
 	} else if exist {

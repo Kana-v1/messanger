@@ -28,16 +28,16 @@ type User struct {
 	Id         int64
 	Name       string
 	Sessions   []SessionId
-	Peers      []Peer           `gorm:"-"`
-	PublicKeys map[int64][]byte `gorm:"-"`//[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key. Saving key to the db obviously is not the best practise, but its ok for now
+	Peers      []Peer                   `gorm:"-"`
+	PublicKeys map[int64][]byte         `gorm:"-"` //[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key. Saving key to the db obviously is not the best practise, but its ok for now
 	UsersList  map[int64]enums.UserType `gorm:"-"`
 }
 
 func NewUser() *User {
-	usersId++
+	UserId++
 	user := &User{
-		Id:         usersId,
-		Name:       fmt.Sprintf("%v_user", usersId),
+		Id:         UserId,
+		Name:       fmt.Sprintf("%v_user", UserId),
 		Sessions:   make([]SessionId, 0),
 		Peers:      make([]Peer, 0),
 		PublicKeys: make(map[int64][]byte),
@@ -83,14 +83,7 @@ func (u *User) Start(peer *Peer) {
 				u.PublicKeys[sessionId] = crypto.GetPublicKeyFromPrivateKey(session.PrivateKey)
 
 				chatSession = session
-				chatSession.Peers[u.Id] = *peer
-				sId := &SessionId{
-					SessionId: session.Id,
-				}
-				u.Sessions = append(u.Sessions, *sId)
-
 				newUser <- u.Name
-
 				break
 			}
 		}
@@ -99,7 +92,7 @@ func (u *User) Start(peer *Peer) {
 	if chatSession == nil {
 		inactiveChatSessionMutex.Lock()
 		if len(InactiveSessions) > 0 {
-			sessionId := InactiveSessions[0].ChatSessionId
+			sessionId = InactiveSessions[0].ChatSessionId
 			InactiveSessions = InactiveSessions[1:]
 			chatSession = Sessions[sessionId]
 			chatSession.State = enums.ChatActive
@@ -114,19 +107,25 @@ func (u *User) Start(peer *Peer) {
 				PrivateKey:      crypto.DecodePrivateKey(privateKey),
 				MessageReceived: make(chan string),
 				Messages:        make([]Message, 0),
+				State:           enums.ChatActive,
 			}
 		}
-		userPeer := make(map[int64]Peer)
-		userPeer[u.Id] = *peer
-		if chatSession.Peers == nil {
-			chatSession.Peers = make(map[int64]Peer)
-		}
-		chatSession.Peers = userPeer
-		u.PublicKeys[sessionId] = crypto.GetPublicKeyFromPrivateKey(chatSession.PrivateKey)
 		chatSession.StartSubscriber()
-
-		Sessions[chatSession.Id] = chatSession
 	}
+
+	userPeer := make(map[int64]Peer)
+	userPeer[u.Id] = *peer
+	if chatSession.Peers == nil {
+		chatSession.Peers = make(map[int64]Peer)
+	}
+	chatSession.Peers[u.Id] = *peer
+	u.PublicKeys[sessionId] = crypto.GetPublicKeyFromPrivateKey(chatSession.PrivateKey)
+	sId := &SessionId{
+		SessionId: chatSession.Id,
+	}
+	u.Sessions = append(u.Sessions, *sId)
+
+	Sessions[chatSession.Id] = chatSession
 
 	go func() {
 		for {
