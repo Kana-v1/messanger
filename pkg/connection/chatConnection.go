@@ -12,55 +12,59 @@ import (
 	"messanger/internal/logs"
 	crypto "messanger/pkg/cryptography/symmetricCrypto"
 
-	"container/list"
-
 	"github.com/gorilla/websocket"
 )
 
 const separateString = "SenderId"
 
 var (
-	ChatId           int64
-	PeerId           int64
-	UserId           int64
-	Sessions         []ChatSession
-	InactiveSessions *InactiveSession
+	ChatId                   int64
+	PeerId                   int64
+	UserId                   int64
+	Sessions                 map[int64]*ChatSession
+	InactiveSessions         []InactiveChatSession
+	inactiveChatSessionMutex = new(sync.Mutex)
+	newUser                  chan string
+	Users                    map[int64]*User
 )
 
-type InactiveSession struct {
-	List  *list.List
-	Mutex *sync.Mutex
+type InactiveChatSession struct {
+	ChatSessionId int64
 }
 
 type Message struct {
-	Message []byte
-	Sender  int64
-	Time    time.Time
+	Id            int64
+	ChatSessionId int64
+	Message       []byte
+	Sender        int64
+	Time          string
 }
 
 type ChatSession struct {
 	Id              int64
-	Peers           map[*User]*Peer
-	PrivateKey      *crypto.CryptoKeys
-	MessageReceived chan string
+	Peers           map[int64]Peer `gorm:"-"` //int64 - userId
+	PrivateKey      []byte         //[]byte encode to  privateKey
+	MessageReceived chan string    `gorm:"-"` //TODO recreate each time read from db
 	Messages        []Message
 	State           enums.ChatSessionState
 }
 
 func init() {
-	InactiveSessions = &InactiveSession{
-		List:  list.New(),
-		Mutex: new(sync.Mutex),
-	}
-	Sessions = make([]ChatSession, 0)
+	InactiveSessions = make([]InactiveChatSession, 0)
+	Sessions = make(map[int64]*ChatSession)
+	Users = make(map[int64]*User)
 }
 
 func (cs *ChatSession) StartSubscriber() {
 	go func() {
 		channel := cs.GetChannel()
 		sub := chat.Client.Subscribe(channel)
-		for user := range cs.Peers {
-			chat.CreateUser(cs.GetChannel(), user.Name)
+		for userId := range cs.Peers {
+			for _, user := range Users {
+				if user.Id == userId {
+					chat.CreateUser(cs.GetChannel(), user.Name)
+				}
+			}
 		}
 		messages := sub.Channel()
 		messageMutex := new(sync.Mutex)
@@ -85,8 +89,8 @@ func (cs *ChatSession) StartSubscriber() {
 						for i := range Sessions {
 							if Sessions[i].Id == cs.Id {
 								cs.Peers = Sessions[i].Peers
+								break
 							}
-							break
 						}
 					default:
 						continue
@@ -95,9 +99,20 @@ func (cs *ChatSession) StartSubscriber() {
 				}
 			}()
 
-			for receiver, peer := range cs.Peers {
-				if senderId != receiver.Id && !receiver.InBlackList(senderId){
-					msg, err := crypto.DecryptMessage([]byte(senderIdAndMessage[1]), cs.PrivateKey)
+			for receiverId, peer := range cs.Peers {
+				receiver, ok := Users[receiverId]
+				if !ok {
+					logs.ErrorLog("getMessageError.log", fmt.Sprintf("Can not find message receiver with id %v", receiverId), nil)
+					continue
+				}
+
+				if senderId != receiver.Id && !receiver.InBlackList(senderId) {
+					privateKey, err := crypto.EncodePrivateKey(cs.PrivateKey)
+					if err != nil {
+						logs.ErrorLog("cryptoKeys.log", "", err)
+						return
+					}
+					msg, err := crypto.DecryptMessage([]byte(senderIdAndMessage[1]), privateKey)
 					if err != nil {
 						logs.ErrorLog("chatError.log", fmt.Sprintf("Peer id: %v, Ssession id: %v, user id: %v; err:", peer.Id, cs.Id, receiver.Id), err)
 					}
@@ -106,16 +121,18 @@ func (cs *ChatSession) StartSubscriber() {
 					//maybe it can bee too many gorutines if there are 100 users in chat that writes at the same time, but if u have 100 users in chat u probably have 100 chats that run async
 					go func() {
 						messageMutex.Lock()
+						time := time.Now()
 						cs.Messages = append(cs.Messages, Message{
 							Message: []byte(senderIdAndMessage[1]),
 							Sender:  senderId,
-							Time:    time.Now(),
+							Time:    time.Local().String(),
 						})
 						messageMutex.Unlock()
 					}()
 
 					if string(msg) == LastChatMessage {
 						cs.MessageReceived <- string(msg)
+						return //in case of reusing empty chat old chat object still run this goroutine, so there will be 2 goroutines for 1 chat session
 					}
 				}
 			}
@@ -128,9 +145,26 @@ func (cs *ChatSession) GetChannel() string {
 }
 
 func (cs *ChatSession) deleteChat() {
-	for u, p := range cs.Peers {
+	for userId, p := range cs.Peers {
+		var u *User
+		for i := range Users {
+			if Users[i].Id == userId {
+				u = Users[i]
+				break
+			}
+		}
+		if u == nil {
+			logs.ErrorLog("deleteChatError.log", fmt.Sprintf("Can not find user with id %v to delete chat", userId), nil)
+			continue
+		}
 		p.IsClosed = true
-		msg, err := crypto.EncryptMessage([]byte(LastChatMessage), u.PublicKeys[cs.Id])
+
+		publicKey, err := crypto.EncodePublicKey(u.PublicKeys[cs.Id])
+		if err != nil {
+			logs.ErrorLog("cryptoKeys.log", "", err)
+			return
+		}
+		msg, err := crypto.EncryptMessage([]byte(LastChatMessage), publicKey)
 		if err != nil {
 			logs.ErrorLog("", "can not encrypt message while deleting chat. Err:", err)
 		}
@@ -144,8 +178,10 @@ func (cs *ChatSession) deleteChat() {
 
 		cs.State = enums.ChatClosed
 		cs.Messages = make([]Message, 0)
-		cs.Peers = make(map[*User]*Peer)
+		cs.Peers = make(map[int64]Peer)
+		inactiveSession := &InactiveChatSession{cs.Id}
 
-		InactiveSessions.List.PushBack(*cs)
+		InactiveSessions = append(InactiveSessions, *inactiveSession)
 	}
+
 }

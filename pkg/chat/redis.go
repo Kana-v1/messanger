@@ -3,7 +3,7 @@ package chat
 import (
 	"fmt"
 	"messanger/internal/logs"
-	nosql "messanger/pkg/repository/noSql"
+	nosql "messanger/pkg/database/noSql"
 	"os"
 	"sync"
 
