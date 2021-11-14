@@ -39,6 +39,7 @@ func main() {
 	e.GET("/*", server.WebSocketHandler)
 	e.POST("/SignUp", server.SignUp)
 	e.POST("/SignIn", server.SignIn)
+	e.GET("/api/get/users", server.GetUsers)
 
 	go func() {
 		stopServer(s)

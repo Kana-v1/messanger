@@ -64,8 +64,8 @@ func GetUsers() map[int64]*User {
 		logs.ErrorLog("sqlError.log", "Can not get chat users; err:", err)
 		return nil
 	}
-	for _, u := range users {
-		res[u.Id] = &u
+	for i, u := range users {
+		res[u.Id] = &users[i]
 		if UserId < u.Id {
 			UserId = u.Id
 		}

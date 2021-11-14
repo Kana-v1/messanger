@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"messanger/internal/logs"
 	"messanger/pkg/authorization/jwt"
 	"messanger/pkg/connection"
@@ -70,4 +71,16 @@ func IsAuthorized(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		return nil
 	}
+}
+
+func GetUsers(c echo.Context) error {
+	users := make([]connection.User, 0)
+	for _, user := range connection.Users {
+		users = append(users, *user)
+	}
+	jsonUsers, err := json.Marshal(users)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, string(jsonUsers))
 }
