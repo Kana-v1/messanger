@@ -7,7 +7,7 @@ import (
 	"messanger/internal/logs"
 	"messanger/pkg/connection"
 	mySql "messanger/pkg/database/Sql"
-	"messanger/pkg/server"
+	"messanger/pkg/server/handlers"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,17 +36,18 @@ func main() {
 		Handler: e,
 	}
 
-	e.GET("/*", server.WebSocketHandler)
-	e.POST("/SignUp", server.SignUp)
-	e.POST("/SignIn", server.SignIn)
-	e.GET("/api/get/users", server.GetUsers)
+	e.GET("/*", handlers.WebSocketHandler)
+	e.POST("/SignUp", handlers.SignUp)
+	e.POST("/SignIn", handlers.SignIn)
+	e.GET("/api/get/users", handlers.GetUsers)
+	e.GET("api/get/chats", handlers.GetChats)
 
 	go func() {
 		stopServer(s)
 	}()
 	go func() {
 		for {
-			<-time.After(5 * time.Minute)
+			<-time.After(1 * time.Minute)
 			saveData()
 		}
 	}()
@@ -98,7 +99,6 @@ func startMySqlServer() {
 		DB:    db,
 	}
 
-	
 	//mySql.SqlContext.CreateTables("", // authorization.Account{
 	// 	Id:       0,
 	// 	Log:      make([]byte, 0),

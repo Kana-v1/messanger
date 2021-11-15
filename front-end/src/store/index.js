@@ -7,6 +7,7 @@ Vue.use(Vuex)
 export default new Vuex.Store({
     state: {
         users: null,
+        chats: null,
     },
     mutations: {
         updateUsers(state, users) {
@@ -20,11 +21,19 @@ export default new Vuex.Store({
                 return 0
             })
         },
+        updateChats(state, chats) {
+            state.chats = JSON.parse(chats)
+        }
     },
     actions: {
         getUsers({ commit }) {
             axios.get(`/api/get/users`)
                 .then((result) => commit('updateUsers', result.data))
+                .catch(console.error)
+        },
+        getChats({ commit }) {
+            axios.get('api/get/chats')
+                .then(result => commit('updateChats', result.data))
                 .catch(console.error)
         }
     }
