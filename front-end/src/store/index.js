@@ -23,6 +23,7 @@ export default new Vuex.Store({
         },
         updateChats(state, chats) {
             state.chats = JSON.parse(chats)
+            state.chats.forEach(chat => chat.Messages.forEach(message => message.Message = new Buffer.from(message.Message, 'base64').toString('binary')))
         }
     },
     actions: {

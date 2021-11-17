@@ -16,8 +16,14 @@
             style="min-height: 100px"
           >
             <span class="mr-auto ms-2"
-              >{{ lastMessage(chat.Id) }} {{ chatName(chat.Id) }}</span
-            >
+              ><div class = "chatTitle">
+                {{ chatTitle(chat.Id) }}
+              </div>
+              <i>{{messageSender(chat.Id)}}</i>&#8594; {{ lastMessage(chat.Id).Message }}
+              <div class = "timeFormat">
+                {{lastMessageTime(chat.Id)}}
+                </div>
+            </span>
           </b-list-group-item>
         </b-list-group>
       </div>
@@ -41,20 +47,29 @@ export default {
         (chat) => chat.Id == chatId
       ).Messages;
       if (curChatMessages.length > 0) {
-        return curChatMessages[curChatMessages.length - 1].Message;
+        return curChatMessages[curChatMessages.length - 1];
       }
     },
-    chatName(chatId) {
-      let chat = this.$store.state.chats.find((chat) => chat.Id == chatId);
-      if (chat.Users != null) {
-        let name = "";
-        chat.Users.forEach((user) => {
+    chatTitle(chatId) {
+      let users = this.$store.state.chats.find(
+        (chat) => chat.Id == chatId
+      ).Users;
+      let name = "";
+      if (users != null) {
+        users.forEach((user) => {
           name += user.Name;
           name += "-";
         });
-        return (name -= "-");
+        return name.substring(0, name.length - 1);
       }
     },
+    messageSender(chatId) {
+      let message = this.lastMessage(chatId)
+      return this.$store.state.users.find(user => user.Id === message.Sender).Name
+    },
+    lastMessageTime(chatId) {
+      return this.lastMessage(chatId).Time.substring(0, 19) //19 - numbers of chars for date and time only
+    }
   },
 
   computed: {
@@ -75,4 +90,22 @@ export default {
 .hover {
   background: rgba(218, 145, 116, 0.2);
 }
+
+.chatTitle {
+  font-family: Courier New;
+  font-size: smaller;
+  margin-bottom: 20px;
+  color: grey;
+}
+
+.timeFormat {
+  position:absolute; 
+  right:0;
+  margin-right: 10px;
+  font-family: Courier New;
+  font-size: smaller;
+  color: grey;
+}
+
+
 </style>

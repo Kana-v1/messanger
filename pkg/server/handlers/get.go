@@ -42,13 +42,16 @@ func GetChats(c echo.Context) error {
 	}
 
 	sessions := make([]ChatForFront, 0)
-	for i, session := range connection.Sessions {
+	for _, session := range connection.Sessions {
 		if session.State != enums.ChatClosed {
+			messages  := make([]connection.Message, 0)
+			messages = append(messages, session.Messages...)
+			
 			sessions = append(sessions, ChatForFront{
 				Id:         session.Id,
 				Users:      usersInChats[session.Id],
-				Messages:   connection.Sessions[i].Messages,
-				PrivateKey: connection.Sessions[i].PrivateKey,
+				Messages:   messages,
+				PrivateKey: session.PrivateKey,
 			})
 		}
 	}

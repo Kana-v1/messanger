@@ -48,7 +48,7 @@ func main() {
 	go func() {
 		for {
 			<-time.After(1 * time.Minute)
-			saveData()
+			SaveData()
 		}
 	}()
 	logs.FatalLog("server.log", "Can not start server", s.ListenAndServe())
@@ -60,7 +60,7 @@ func stopServer(s http.Server) {
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt)
 	<-stop
-	saveData()
+	SaveData()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -150,17 +150,17 @@ func startMySqlServer() {
 	// 	UserId:    -1,
 	// 	SessionId: -1,
 	// })
-	getData()
+	GetData()
 
 }
 
-func saveData() {
+func SaveData() {
 	connection.SaveChatSessions()
 	connection.SaveUsers()
 	connection.SaveInactiveSessions()
 }
 
-func getData() {
+func GetData() {
 	connection.Sessions, connection.InactiveSessions = connection.GetChatSessions()
 	connection.Users = connection.GetUsers()
 	connection.InactiveSessions = connection.GetInactiveSession()
