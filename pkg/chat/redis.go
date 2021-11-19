@@ -14,7 +14,7 @@ var (
 	Client        *redis.Client
 	redisHost     string
 	redisPassword string
-	redisContext  *nosql.RedisContext
+	RedisContext  *nosql.RedisContext
 )
 
 func init() {
@@ -39,18 +39,18 @@ func init() {
 	})
 
 	fmt.Println("Redis client started")
-	redisContext = &nosql.RedisContext{
+	RedisContext = &nosql.RedisContext{
 		Client: Client,
 		Mutex:  new(sync.Mutex),
 	}
 }
 
 func RemoveUser(session string, user string) {
-	redisContext.RemoveValue(session, user)
+	RedisContext.RemoveValue(session, user)
 }
 
 func CreateUser(session string, user string) {
-	redisContext.AddValue(session, user)
+	RedisContext.AddValue(session, user)
 }
 
 func SendToChannel(msg string, channel string) {

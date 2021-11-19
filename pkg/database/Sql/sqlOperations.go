@@ -75,24 +75,27 @@ func (c *MySqlContext) ExistThreadSafe(table string, value interface{}) (bool, e
 func (c *MySqlContext) Exist(table string, value interface{}) (bool, error) {
 	err := c.DB.Table(table).Find(&value).Error
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, nil
+		}
+
 		return false, errors.Wrap(err, fmt.Sprintf("Can not get value %v", value))
 	}
 	return true, nil
 }
 
-func (c *MySqlContext) AccountExist(hashedLog []byte, hashedPass []byte, acc interface{}) (bool, error) {
+func (c *MySqlContext) GetAccounts() (*gorm.DB, error) {
 	c.Mutex.RLock()
 	defer c.Mutex.RUnlock()
-	err := c.DB.Table("Accounts").Where(map[string]interface{}{"log": hashedLog, "password": hashedPass}).Find(acc).Error
-	if err != nil {
-		return false, errors.Wrap(err, "Can not check if account exists")
+	db := c.DB.Table("Accounts")
+	if db.Error != nil {
+		return nil, errors.Wrap(db.Error, "Can not check if account exists")
+	}
+	if db.Error == gorm.ErrRecordNotFound {
+		return nil, nil
 	}
 
-	if acc != nil {
-		return true, nil
-	}
-
-	return false, nil
+	return db, nil
 }
 
 func (c *MySqlContext) UpdateValues(values ...interface{}) error {

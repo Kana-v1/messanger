@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"bytes"
 	"messanger/internal/logs"
 	"messanger/pkg/authorization"
 	"messanger/pkg/cryptography/hash"
@@ -27,12 +28,20 @@ func SignUp(c echo.Context) error {
 		Log:      hashedLog,
 		Password: hashedPassword,
 	}
+	accs := make([]authorization.Account, 0)
 
-	if exist, err := sql.SqlContext.ExistThreadSafe("Accounts", newAcc); err != nil {
+	if db, err := sql.SqlContext.GetAccounts(); err != nil {
 		logs.ErrorLog("sqlError.log", "", err)
 		return c.String(http.StatusInternalServerError, "Account has not been registered")
-	} else if exist {
+	} else if db == nil {
 		return c.String(http.StatusConflict, "Account with same log already exist")
+	} else {
+		db.Find(&accs)
+		for _, account := range accs {
+			if bytes.Equal(account.Log, newAcc.Log) {
+				return c.String(http.StatusConflict, "Account with same log already exist")
+			}
+		}
 	}
 
 	err := sql.SqlContext.AddValuesThreadSafe("Accounts", newAcc)

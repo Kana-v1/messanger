@@ -41,6 +41,7 @@ func main() {
 	e.POST("/SignIn", handlers.SignIn)
 	e.GET("/api/get/users", handlers.GetUsers)
 	e.GET("api/get/chats", handlers.GetChats)
+	e.GET("/checkAuthorize/:accId", handlers.IsAuthorized)
 
 	go func() {
 		stopServer(s)
@@ -99,7 +100,7 @@ func startMySqlServer() {
 		DB:    db,
 	}
 
-	//mySql.SqlContext.CreateTables("", // authorization.Account{
+	// mySql.SqlContext.CreateTables("", authorization.Account{
 	// 	Id:       0,
 	// 	Log:      make([]byte, 0),
 	// 	Password: make([]byte, 0),

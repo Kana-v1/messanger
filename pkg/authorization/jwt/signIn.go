@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"messanger/pkg/authorization"
+	"messanger/pkg/chat"
 	"messanger/pkg/cryptography/hash"
 	"net/http"
 	"strconv"
@@ -30,11 +31,11 @@ func SignIn(c echo.Context) error {
 
 	hashedLog := hash.Hash([]byte(logData.Log))
 	hashedPassword := hash.Hash([]byte(logData.Password))
-	exist, err := authorization.AccountExist(hashedLog, hashedPassword)
+	accId, err := authorization.AccountExist(hashedLog, hashedPassword)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	if !exist {
+	if accId == -1 {
 		return c.String(http.StatusBadRequest, "Incorrect log or password")
 	}
 
@@ -53,17 +54,13 @@ func SignIn(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Can not create token")
 	}
 
-	c.SetCookie(&http.Cookie{
-		Name:    "token",
-		Value:   tokenString,
-		Expires: expirationTime,
-	})
+	chat.RedisContext.AddValue(fmt.Sprintf("%v-token", accId), tokenString, expirationTime)
 
 	return c.String(http.StatusAccepted, "Successfully loged in")
 }
 
 func RefreshToken(c echo.Context) error {
-	_, claims := IsAuthorized(c)
+	claims, _ := IsAuthorized(c)
 
 	if time.Unix(claims.ExpiresAt, 0).Sub(time.Now()) > 30*time.Second {
 		return c.String(http.StatusEarlyHints, "Too early to refresh token")
@@ -87,18 +84,17 @@ func RefreshToken(c echo.Context) error {
 	return c.String(http.StatusAccepted, "TokenRefreshed")
 }
 
-func IsAuthorized(c echo.Context) (error, *claims) {
+func IsAuthorized(c echo.Context) (*claims, error) {
 	unAuthorized := errors.New(strconv.Itoa(http.StatusUnauthorized))
-	cookie, err := c.Cookie("token")
-	if err != nil {
-		if err == http.ErrNoCookie {
-			return unAuthorized, nil
-		}
-
-		return err, nil
+	accId := c.Param("accId")
+	if accId == "" {
+		return nil, errors.New(strconv.Itoa(http.StatusInternalServerError))
 	}
 
-	tokenStr := cookie.Value
+	redisKey := fmt.Sprintf("%v-token", accId)
+	tokenStr, err := chat.RedisContext.GetValue(redisKey)
+	fmt.Println(tokenStr)
+	//tokenStr := cookie.Value
 	claims := new(claims)
 
 	tkn, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
@@ -107,14 +103,14 @@ func IsAuthorized(c echo.Context) (error, *claims) {
 
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
-			return unAuthorized, nil
+			return nil, unAuthorized
 		}
-		return err, nil
+		return nil, err
 	}
 
 	if !tkn.Valid {
-		return unAuthorized, nil
+		return nil, unAuthorized
 	}
 
-	return nil, claims
+	return claims, nil
 }
