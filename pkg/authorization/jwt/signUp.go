@@ -7,6 +7,7 @@ import (
 	"messanger/pkg/cryptography/hash"
 	sql "messanger/pkg/database/Sql"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -50,5 +51,5 @@ func SignUp(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Account has not been registered")
 	}
 
-	return c.String(http.StatusOK, "Account has been registered")
+	return c.String(http.StatusOK, strconv.FormatInt(newAcc.Id, 10))
 }

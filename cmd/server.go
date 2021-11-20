@@ -37,10 +37,10 @@ func main() {
 	}
 
 	e.GET("/*", handlers.WebSocketHandler)
-	e.POST("/SignUp", handlers.SignUp)
-	e.POST("/SignIn", handlers.SignIn)
+	e.POST("/api/post/signUp", handlers.SignUp)
+	e.POST("/api/post/signIn", handlers.SignIn)
 	e.GET("/api/get/users", handlers.GetUsers)
-	e.GET("api/get/chats", handlers.GetChats)
+	e.GET("/api/get/chats", handlers.GetChats)
 
 	go func() {
 		stopServer(s)

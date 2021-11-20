@@ -63,7 +63,7 @@ func SignIn(c echo.Context) error {
 
 	go deleteToken(redisKey, TOKEN_LIFE_TIME) //not sure if this goroutine won't interfere gc to collect function's garbage
 
-	return c.String(http.StatusAccepted, "Successfully loged in")
+	return c.String(http.StatusAccepted, strconv.FormatInt(accId, 10))
 }
 
 func RefreshToken(c echo.Context) error {

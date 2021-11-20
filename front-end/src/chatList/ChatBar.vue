@@ -1,6 +1,6 @@
 <template>
-  <body class="bg-dark w-100 h-100">
-    <div class="chatList bg-dark">
+  <body class="w-100">
+    <div class="chatList">
       <div>
         <b-list-group class="bg-dark">
           <b-list-group-item
@@ -107,5 +107,9 @@ export default {
   color: grey;
 }
 
+body {
+  height: 100vh;
+  background:black;
+}
 
 </style>

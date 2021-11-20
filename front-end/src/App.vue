@@ -1,28 +1,19 @@
 <template>
-<body class = "bg-dark">
-  <div id="app">
-    <HomePage/>
-  </div>
-</body>
+  <body>
+    <div id="app">
+      <router-view />
+    </div>
+  </body>
 </template>
 
 <script>
-import HomePage from './main/HomePage.vue'
-
-
 export default {
-  name: 'App',
-  components: {
-    HomePage
-  },
-}
+  name: "App",
+};
 </script>
 
 <style>
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
-}
-body {
-  background: black;
 }
 </style>
