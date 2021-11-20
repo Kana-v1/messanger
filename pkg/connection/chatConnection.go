@@ -41,12 +41,12 @@ type Message struct {
 }
 
 type ChatSession struct {
-	Id              int64
-	Peers           map[int64]Peer `gorm:"-"` //int64 - userId
+	Id              int64			
+	Peers           map[int64]Peer `gorm:"-" json:"-"` //int64 - userId
 	PrivateKey      []byte         //[]byte encode to  privateKey
-	MessageReceived chan string    `gorm:"-"` //TODO recreate each time read from db
+	MessageReceived chan string    `gorm:"-" json:"-"` //TODO recreate each time read from db
 	Messages        []Message
-	State           enums.ChatSessionState
+	State           enums.ChatSessionState `json:"-"`
 }
 
 func init() {

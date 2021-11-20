@@ -27,10 +27,10 @@ type SessionId struct {
 type User struct {
 	Id         int64
 	Name       string
-	Sessions   []SessionId
-	Peers      []Peer                   `gorm:"-"`
-	PublicKeys map[int64][]byte         `gorm:"-"` //[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key. Saving key to the db obviously is not the best practise, but its ok for now
-	UsersList  map[int64]enums.UserType `gorm:"-"`
+	Sessions   []SessionId              `json:"-"`
+	Peers      []Peer                   `gorm:"-" json:"-"`
+	PublicKeys map[int64][]byte         `gorm:"-" json:"-"` //[]byte encodes to public key and vice versa, for each chat session use own public key and session's private key. Saving key to the db obviously is not the best practise, but its ok for now
+	UsersList  map[int64]enums.UserType `gorm:"-" json:"-"`
 }
 
 func NewUser() *User {

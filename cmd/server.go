@@ -7,7 +7,7 @@ import (
 	"messanger/internal/logs"
 	"messanger/pkg/connection"
 	mySql "messanger/pkg/database/Sql"
-	"messanger/pkg/server"
+	"messanger/pkg/server/handlers"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,17 +36,19 @@ func main() {
 		Handler: e,
 	}
 
-	e.GET("/*", server.WebSocketHandler)
-	e.POST("/SignUp", server.SignUp)
-	e.POST("/SignIn", server.SignIn)
+	e.GET("/*", handlers.WebSocketHandler)
+	e.POST("/SignUp", handlers.SignUp)
+	e.POST("/SignIn", handlers.SignIn)
+	e.GET("/api/get/users", handlers.GetUsers)
+	e.GET("api/get/chats", handlers.GetChats)
 
 	go func() {
 		stopServer(s)
 	}()
 	go func() {
 		for {
-			<-time.After(5 * time.Minute)
-			saveData()
+			<-time.After(1 * time.Minute)
+			SaveData()
 		}
 	}()
 	logs.FatalLog("server.log", "Can not start server", s.ListenAndServe())
@@ -58,7 +60,7 @@ func stopServer(s http.Server) {
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt)
 	<-stop
-	saveData()
+	SaveData()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -97,8 +99,7 @@ func startMySqlServer() {
 		DB:    db,
 	}
 
-	
-	//mySql.SqlContext.CreateTables("", // authorization.Account{
+	// mySql.SqlContext.CreateTables("", authorization.Account{
 	// 	Id:       0,
 	// 	Log:      make([]byte, 0),
 	// 	Password: make([]byte, 0),
@@ -149,17 +150,17 @@ func startMySqlServer() {
 	// 	UserId:    -1,
 	// 	SessionId: -1,
 	// })
-	getData()
+	GetData()
 
 }
 
-func saveData() {
+func SaveData() {
 	connection.SaveChatSessions()
 	connection.SaveUsers()
 	connection.SaveInactiveSessions()
 }
 
-func getData() {
+func GetData() {
 	connection.Sessions, connection.InactiveSessions = connection.GetChatSessions()
 	connection.Users = connection.GetUsers()
 	connection.InactiveSessions = connection.GetInactiveSession()

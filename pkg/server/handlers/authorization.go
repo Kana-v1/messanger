@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"messanger/internal/logs"
@@ -61,7 +61,7 @@ func RefreshToken(next echo.HandlerFunc) echo.HandlerFunc {
 
 func IsAuthorized(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if err, _ := jwt.IsAuthorized(c); err != nil {
+		if _, err := jwt.IsAuthorized(c); err != nil {
 			return c.String(http.StatusUnauthorized, "You are unauthorized")
 		}
 
