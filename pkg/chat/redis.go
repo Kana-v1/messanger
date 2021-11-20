@@ -41,7 +41,7 @@ func init() {
 	fmt.Println("Redis client started")
 	RedisContext = &nosql.RedisContext{
 		Client: Client,
-		Mutex:  new(sync.Mutex),
+		Mutex:  new(sync.RWMutex),
 	}
 }
 

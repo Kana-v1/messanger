@@ -41,7 +41,6 @@ func main() {
 	e.POST("/SignIn", handlers.SignIn)
 	e.GET("/api/get/users", handlers.GetUsers)
 	e.GET("api/get/chats", handlers.GetChats)
-	e.GET("/checkAuthorize/:accId", handlers.IsAuthorized)
 
 	go func() {
 		stopServer(s)
