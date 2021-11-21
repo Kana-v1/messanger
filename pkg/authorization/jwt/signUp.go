@@ -17,7 +17,7 @@ var accId int64 = 1
 func SignUp(c echo.Context) error {
 	logData := new(authorization.LogData)
 	if err := (&echo.DefaultBinder{}).BindBody(c, &logData); err != nil {
-		return err
+		 return c.String(http.StatusBadRequest, err.Error())
 	}
 
 	hashedPassword := hash.Hash([]byte(logData.Password))
@@ -25,7 +25,6 @@ func SignUp(c echo.Context) error {
 	//TODO use for users same id as for acc
 
 	newAcc := &authorization.Account{
-		Id:       accId,
 		Log:      hashedLog,
 		Password: hashedPassword,
 	}
@@ -39,17 +38,23 @@ func SignUp(c echo.Context) error {
 	} else {
 		db.Find(&accs)
 		for _, account := range accs {
+			if accId < account.Id {
+				accId = account.Id
+			}
+
 			if bytes.Equal(account.Log, newAcc.Log) {
 				return c.String(http.StatusConflict, "Account with same log already exist")
 			}
 		}
 	}
 
+	accId++
+	newAcc.Id = accId
+
 	err := sql.SqlContext.AddValuesThreadSafe("Accounts", newAcc)
 	if err != nil {
 		logs.ErrorLog("sqlError.log", "", err)
 		return c.String(http.StatusInternalServerError, "Account has not been registered")
 	}
-
 	return c.String(http.StatusOK, strconv.FormatInt(newAcc.Id, 10))
 }

@@ -8,7 +8,7 @@ export default new Vuex.Store({
     state: {
         users: null,
         chats: null,
-        signedIn: [],
+        signedId: -1,
         signUpMessage: '',
         signInMessage: '',
         isAuthorized: false,
@@ -32,9 +32,11 @@ export default new Vuex.Store({
         signInAccount(state, accId, message) {
             state.signedIn.push(accId)
             state.signInMessage = message,
-            state.isAuthorized = true
+                state.isAuthorized = true
         },
-        signUpAccount(state, message) {
+        signUpAccount(state, accId, message) {
+            console.log(message);
+            state.signedId = accId
             state.signUpMessage = message
         }
 
@@ -53,20 +55,25 @@ export default new Vuex.Store({
         signIn({ commit }) {
             return function (accId, log, password) {
                 axios.post('api/post/signIn', {
+                    accountId: accId,
                     log: log,
                     password: password
                 }).then(result => commit('signInAccount', result.data, 'Succesfully signed up'))
                     .catch(error => this.state.signInMessage = error.reponse.data)
             }
         },
-        signUp({ commit }) {
-            return function (log, password) {
-                axios.post('api/post/signUp', {
-                    log: log,
-                    password: password
-                }).then(result => commit('signUpAccount', result.data, 'Succesfully signed in'))
-                    .catch(error => this.state.signUpMessage = error.reponse.data)
-            }
+        signUp({ commit }, logData) {
+            console.log(commit);
+            //commit('signUpAccount', result.data, 'Succesfully signed in'))
+            async () => axios.post('/api/post/signUp', {
+                log: logData.log,
+                password: logData.password
+            }).then(response => {
+                console.log(response)
+            })
+                .catch(error => {
+                    console.log(error.response)
+                });//.then(() => console.log(125125125125)).catch(err => { console.log('Call Failed!'); console.log(err); });//error => this.state.signUpMessage = error.reponse.data)
         },
     }
 });

@@ -301,3 +301,4 @@ func (u *User) SaveFriendFriends() {
 		logs.ErrorLog("sqlError.log", fmt.Sprintf("Can not save user's(Id: %v) friends", u.Id), err)
 	}
 }
+
